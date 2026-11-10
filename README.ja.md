@@ -133,6 +133,8 @@ scripts/demo.sh
 
 2026-11-10、NEAR testnet、模擬アテステーション、合成データ（仮想空間での検証）。コントラクト `fixseal-guard.testnet`、wasm の SHA-256 `9fb00594…4c718`（CI でソースから作ったものと同じ）。桁あふれ攻撃で上限 1000 yoctoNEAR を超えて送金 → 記録なし・reject 記録での差し替えは失敗 → accept 記録の修正を導入 → 同じ攻撃は拒否 → 正当な 100 yoctoNEAR は送金。[全取引・鍵・最終状態](docs/testnet-run-2026-11-10.md)。読み取りだけの再確認: `scripts/judge-check.sh --stage a --allow-testnet-read`。
 
+ブラウザで見る（読み取りのみ）: <https://morikikamio.github.io/fixseal/>。ブラウザからコントラクトを読み、コードのハッシュ、ルールのハッシュ、accept の記録、エージェントの鍵の制限を確かめます。ウォレットも鍵も使いません。
+
 ## 仕組み
 
 ```text

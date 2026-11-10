@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixseal Guard Viewer</title>
+<meta name="description" content="Read-only view of the Fixseal spending guard on NEAR testnet.">
+<style>
+:root {
+  --bg: #f7f7f5; --surface: #ffffff; --text: #17181a; --muted: #5d6168; --line: #e3e3df;
+  --accent: #2f5bd3; --ok: #1d7a46; --ok-bg: #e5f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+  --warn-bg: #fff6dc; --warn: #7a5a00; --code-bg: #f1f1ee;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111214; --surface: #1a1c1f; --text: #ecedee; --muted: #a0a4ab; --line: #2c2f34;
+    --accent: #7ea2ff; --ok: #6fd39a; --ok-bg: #16301f; --bad: #ff8a80; --bad-bg: #3a1b19;
+    --warn-bg: #3a3014; --warn: #f2d27a; --code-bg: #23262a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111214; --surface: #1a1c1f; --text: #ecedee; --muted: #a0a4ab; --line: #2c2f34;
+  --accent: #7ea2ff; --ok: #6fd39a; --ok-bg: #16301f; --bad: #ff8a80; --bad-bg: #3a1b19;
+  --warn-bg: #3a3014; --warn: #f2d27a; --code-bg: #23262a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+a { color: var(--accent); }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 36px 0 10px; }
+p { margin: 6px 0; }
+.lede { color: var(--muted); max-width: 720px; }
+.banner { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px;
+  font-size: 13px; margin: 14px 0 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--muted);
+  font-size: 13px; margin-top: 12px; }
+button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.value { font-size: 22px; font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.rule { font-family: var(--mono); font-size: 15px; background: var(--code-bg); border-radius: 6px;
+  padding: 8px 10px; margin-top: 6px; overflow-wrap: anywhere; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.checks li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: start; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 9px; text-align: center; }
+.pass { background: var(--ok-bg); color: var(--ok); }
+.fail { background: var(--bad-bg); color: var(--bad); }
+.wait { background: var(--code-bg); color: var(--muted); }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 14px; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+tr:last-child td { border-bottom: 0; }
+.err { color: var(--bad); font-size: 13px; }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fixseal guard on NEAR testnet</h1>
+  <p class="lede">An AI agent spends through this contract. Its spending rule can only be replaced by the exact rule
+    an <strong>accept</strong> record covers: the fix beat the exploit, passed regressions, and its Lean proof was
+    checked against a fixed specification. This page reads the contract live. It is read-only: no wallet, no keys, no transactions.</p>
+  <div class="banner">Simulated environment, synthetic data (仮想空間での検証) · NEAR testnet · mock attestation · not a security certification</div>
+  <div class="bar">
+    <span>Contract <a id="contract-link" href="https://testnet.nearblocks.io/address/fixseal-guard.testnet" target="_blank" rel="noopener"><code>fixseal-guard.testnet</code></a></span>
+    <span id="status">Loading…</span>
+    <button id="refresh" type="button">Refresh</button>
+  </div>
+
+  <h2>Live state</h2>
+  <div class="grid">
+    <div class="card"><div class="label">Spending cap</div><div class="value" id="limit">–</div><div class="note">yoctoNEAR</div></div>
+    <div class="card"><div class="label">Spent counter</div><div class="value" id="spent">–</div><div class="note">Wrapped by the overflow attack, then +100 legitimate</div></div>
+    <div class="card"><div class="label">Total actually paid</div><div class="value" id="total">–</div><div class="note">Far above the cap: the attack paid before the fix</div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="label">Rule in force now</div>
+    <div class="rule" id="rule-now">–</div>
+    <div class="note">Installed from record <code id="rule-record">–</code></div>
+  </div>
+
+  <h2>Checks this page runs in your browser</h2>
+  <ul class="checks" id="checks"></ul>
+
+  <h2>Agent spend key (live)</h2>
+  <div class="card" id="key-card"><span class="note">Loading…</span></div>
+
+  <h2>Judge records on chain</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Verdict</th><th>Proposed rule</th><th>Record</th><th>Submitted</th></tr></thead>
+    <tbody id="records"><tr><td colspan="4" class="note">Loading…</td></tr></tbody>
+  </table></div>
+
+  <h2>Rule changes</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>When</th><th>From</th><th>To</th><th>Record</th></tr></thead>
+    <tbody id="history"><tr><td colspan="4" class="note">Loading…</td></tr></tbody>
+  </table></div>
+
+  <h2>Recorded run, 2026-11-10 (UTC)</h2>
+  <p class="note">The scripted run that produced the state above. Each outcome was checked from final receipts. Links open the public explorer.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Step</th><th>Outcome</th><th>Tx</th></tr></thead>
+    <tbody id="run"></tbody>
+  </table></div>
+
+  <h2>Limits</h2>
+  <p>The contract trusts the record submitter (the registered agent) and the owner; it does not run Lean. Attestation is mock.
+    The Lean-to-contract match is tested on 1,028 fixed inputs, not proved. The agent account also holds its own full-access key;
+    the spend calls in the run were signed with the restricted key shown above.</p>
+
+  <footer>
+    Check it yourself: <code>scripts/judge-check.sh --stage a --allow-testnet-read</code> ·
+    <a href="https://github.com/MorikiKamio/fixseal">github.com/MorikiKamio/fixseal</a> ·
+    Built at NEAR HACKATHON 2026. Independent of NEAR AI.
+  </footer>
+</main>
+
+<script>
+const RPC = "https://rpc.testnet.near.org";
+const CONTRACT = "fixseal-guard.testnet";
+const AGENT = "fixseal-agent.testnet";
+const SPEND_KEY = "ed25519:7EdXbephz5fZrYvBbr6t5mwoPNUZxik1L3fGPNT1PCvQ";
+// Values published in the repository (docs/testnet-run-2026-11-10.md, CI build).
+const EXPECTED = {
+  wasm: "9fb005949b916925053a0d0781b193e7f4ab74aebcd6761eb730145de9f4c718",
+  spec: "e3933e5161e3cbd034aa95cdf11659ffec4407c9697dbf405869d5a3fee5bebe",
+  record: "c3648c7670ef2095eed61998a699c09d4bc2f8054a81df03272fcdc406d9ffcb",
+  policy: "f23ed0cdfa62e12466cc568310c6880484f321a946dbeeb0c28f99fae8db330a",
+};
+const TX = "https://testnet.nearblocks.io/txns/";
+const RUN = [
+  ["Initialize the vulnerable rule (cap 1000)", "success", "ok", "DCcJEiae8DFcGKXvxXdpjHNu9MJ9N56a9HzxhWo9xR2g"],
+  ["Spend 600", "paid", "ok", "4TU54yHnkaJ3sp9g9hn7Kd9TjDvjKJ3aBPZnJWmbNjcN"],
+  ["Overflow attack: spend 18446744073709551116", "paid — the bug", "bad", "3Y7v93BrSSSUfVeJjswo6DxW5E6gW7R8ka4FUC3Vc27L"],
+  ["Replace the rule with no record", "rejected: Guard record missing", "ok", "5XCqC9F1uBPcmXVLMFh4RwdsSASFjXuNYkU8pET7CyP2"],
+  ["Record the saturating fix (judge: reject)", "recorded", "ok", "BQRrn5YKTXWUKKVdhZ5zTm41F9Sg2uRSPumoWtjnGqTr"],
+  ["Install the saturating fix", "rejected: record is not accept", "ok", "CU4UED48FSL6W25JCfwPMn3eLxbHWL8BvUuz9qHWEYGZ"],
+  ["Record the honest fix (judge: accept, Lean proof checked)", "recorded", "ok", "FwDVK8DgFEN7HB8xPTG1THfYp8VABv9s6pZPB57Yqx6v"],
+  ["Install the honest fix", "installed", "ok", "EjW7Qs26QVQuNiEvfEBLjzkQrxVLUtUMrmcCDNEw8Ekm"],
+  ["Same overflow attack again", "refused; recipient balance unchanged", "ok", "mTeyRshJKfpdykMWfYUwkpGgYN6JEc9h2rmAneKR8CY"],
+  ["Legitimate spend 100", "paid", "ok", "GJPsKCjNjYuWwWvFX6HYhyLmh9cTioVkeGsAoExgxZeN"],
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const short = (h) => (h && h.length > 16 ? h.slice(0, 8) + "…" + h.slice(-4) : h || "–");
+const num = (s) => BigInt(s).toLocaleString("en-US");
+const when = (ms) => new Date(Number(ms)).toISOString().replace("T", " ").slice(0, 19) + " UTC";
+
+async function rpc(params) {
+  const res = await fetch(RPC, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "fixseal-viewer", method: "query", params: { finality: "final", ...params } }) });
+  const body = await res.json();
+  if (body.error || !body.result || body.result.error) throw new Error(JSON.stringify(body.error || body.result.error));
+  return body.result;
+}
+async function view(method, args = {}) {
+  const r = await rpc({ request_type: "call_function", account_id: CONTRACT, method_name: method,
+    args_base64: btoa(JSON.stringify(args)) });
+  return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))), height: r.block_height };
+}
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function base58hex(s) {
+  const A = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let n = 0n;
+  for (const c of s) { const i = A.indexOf(c); if (i < 0) throw new Error("bad base58"); n = n * 58n + BigInt(i); }
+  return n.toString(16).padStart(64, "0");
+}
+
+// Render the rule's JSON expression as readable math.
+const PREC = { or: 1, and: 2, le: 3, lt: 3, add: 4, sub: 4 };
+function fmt(e, parent = 0) {
+  const a = e.args;
+  let s, p = PREC[e.op] || 9;
+  switch (e.op) {
+    case "amount": case "limit": case "spent": return e.op;
+    case "const": return a === "18446744073709551615" ? "U64_MAX" : String(a);
+    case "and": s = a.map((x) => fmt(x, p)).join(" ∧ "); break;
+    case "or": s = a.map((x) => fmt(x, p)).join(" ∨ "); break;
+    case "le": s = `${fmt(a[0], p)} ≤ ${fmt(a[1], p)}`; break;
+    case "lt": s = `${fmt(a[0], p)} < ${fmt(a[1], p)}`; break;
+    case "add": s = `${fmt(a[0], p)} + ${fmt(a[1], p)}`; break;
+    case "sub": s = `${fmt(a[0], p)} − ${fmt(a[1], p + 1)}`; break;
+    case "not": return `¬(${fmt(a[0] ?? a)})`;
+    case "if": return `(if ${fmt(a[0])} then ${fmt(a[1])} else ${fmt(a[2])})`;
+    default: return JSON.stringify(e);
+  }
+  return p < parent ? `(${s})` : s;
+}
+function rule(exprText) { try { return fmt(JSON.parse(exprText)); } catch { return exprText; } }
+
+function check(ok, title, detail) {
+  const cls = ok === null ? "wait" : ok ? "pass" : "fail";
+  const word = ok === null ? "n/a" : ok ? "PASS" : "FAIL";
+  return `<li><span class="pill ${cls}">${word}</span><div><strong>${esc(title)}</strong><div class="note">${detail}</div></div></li>`;
+}
+
+function renderRun() {
+  $("run").innerHTML = RUN.map(([step, out, kind, tx], i) =>
+    `<tr><td>${i + 1}</td><td>${esc(step)}</td><td><span class="pill ${kind === "bad" ? "fail" : "pass"}">${esc(out)}</span></td>` +
+    `<td><a class="mono" href="${TX + tx}" target="_blank" rel="noopener">${tx.slice(0, 8)}…</a></td></tr>`).join("");
+}
+
+async function load() {
+  $("status").textContent = "Reading testnet…";
+  try {
+    const [st, hist, recs, acct, keys] = await Promise.all([
+      view("guard_state"), view("guard_history"), view("list_fix_proofs"),
+      rpc({ request_type: "view_account", account_id: CONTRACT }),
+      rpc({ request_type: "view_access_key_list", account_id: AGENT }),
+    ]);
+    const s = st.value;
+    if (!s) throw new Error("guard_state is empty");
+    $("limit").textContent = num(s.limit);
+    $("spent").textContent = num(s.spent);
+    $("total").textContent = num(s.total_paid);
+    $("rule-now").textContent = rule(s.policy_expr);
+    $("rule-record").textContent = short(s.record_id);
+
+    const records = recs.value.map((r) => ({ ...r, s: JSON.parse(r.summary) }));
+    const active = records.find((r) => r.bundle_hash === s.record_id);
+    const exprHash = await sha256hex(s.policy_expr);
+    const codeHex = base58hex(acct.code_hash);
+    const spendKey = keys.keys.find((k) => k.public_key === SPEND_KEY);
+    const fc = spendKey && spendKey.access_key.permission.FunctionCall;
+    const keyOk = !!fc && fc.receiver_id === CONTRACT && fc.method_names.length === 1 && fc.method_names[0] === "guard_spend";
+
+    $("checks").innerHTML = [
+      check(codeHex === EXPECTED.wasm, "Deployed code is the CI source build",
+        `on-chain code hash <code>${short(codeHex)}</code> vs published wasm SHA-256 <code>${short(EXPECTED.wasm)}</code>`),
+      check(exprHash === s.policy_expr_sha256 && exprHash === EXPECTED.policy, "Rule in force hashes to the published value",
+        `SHA-256 computed here <code>${short(exprHash)}</code>; contract says <code>${short(s.policy_expr_sha256)}</code>`),
+      check(!!active && active.s.verdict === "accept" && active.s.policy_expr === s.policy_expr,
+        "Rule came from an accept record",
+        active ? `record <code>${short(active.bundle_hash)}</code>: verdict <strong>${esc(active.s.verdict)}</strong>, judge ${esc(active.s.judge_version)}, same rule text` : "record not found"),
+      check(s.spec_sha256 === EXPECTED.spec && (!active || active.s.spec_sha256 === s.spec_sha256),
+        "Same fixed specification", `spec SHA-256 <code>${short(s.spec_sha256)}</code>`),
+      check(s.record_id === EXPECTED.record, "Record matches the repository evidence",
+        `expected <code>${short(EXPECTED.record)}</code>`),
+      check(keyOk, "Agent key can only call guard_spend",
+        fc ? `receiver <code>${esc(fc.receiver_id)}</code>, methods <code>${esc(fc.method_names.join(", "))}</code>` : "spend key not found"),
+    ].join("");
+
+    $("key-card").innerHTML = spendKey
+      ? `<div class="label">${esc(AGENT)}</div><div class="mono" style="margin:4px 0">${esc(SPEND_KEY)}</div>` +
+        `<div>Permission: <strong>${fc ? "FunctionCall" : "FullAccess"}</strong>` +
+        (fc ? ` · receiver <code>${esc(fc.receiver_id)}</code> · methods <code>${esc(fc.method_names.join(", "))}</code>` : "") + `</div>` +
+        `<div class="note">It cannot call guard_set_policy, transfer, or touch any other contract.</div>`
+      : `<span class="err">Spend key not found on ${esc(AGENT)}</span>`;
+
+    $("records").innerHTML = records.map((r) =>
+      `<tr><td><span class="pill ${r.s.verdict === "accept" ? "pass" : "fail"}">${esc(r.s.verdict)}</span></td>` +
+      `<td><code>${esc(rule(r.s.policy_expr))}</code></td><td class="mono">${short(r.bundle_hash)}</td>` +
+      `<td>${when(r.block_timestamp_ms)}<div class="note">by ${esc(r.caller)}</div></td></tr>`).join("") ||
+      `<tr><td colspan="4" class="note">No records</td></tr>`;
+
+    $("history").innerHTML = hist.value.map((h) =>
+      `<tr><td>${when(h.block_timestamp_ms)}</td><td class="mono">${short(h.previous_policy_expr_sha256)}</td>` +
+      `<td class="mono">${short(h.policy_expr_sha256)}</td><td class="mono">${short(h.record_id)}</td></tr>`).join("") ||
+      `<tr><td colspan="4" class="note">No changes</td></tr>`;
+
+    $("status").textContent = `Final block ${st.height.toLocaleString("en-US")} · read ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    $("status").innerHTML = `<span class="err">Could not read testnet: ${esc(err.message)}</span>`;
+  }
+}
+
+renderRun();
+load();
+$("refresh").addEventListener("click", load);
+</script>
+</body>
+</html>

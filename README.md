@@ -182,6 +182,8 @@ Sandboxed coding environments may fail with `Operation not permitted` while bind
 
 2026-11-10, NEAR testnet, local/mock attestation, synthetic data (仮想空間での検証). Contract `fixseal-guard.testnet`, wasm SHA-256 `9fb00594…4c718` (same as the CI source build). The overflow attack paid out past the 1000 yoctoNEAR cap; replacement without a record and with a reject record failed; the accept-recorded fix was installed; the same attack was refused; a legitimate 100 yoctoNEAR spend went through. [All transactions, keys and final state](docs/testnet-run-2026-11-10.md). Read-only recheck: `scripts/judge-check.sh --stage a --allow-testnet-read`.
 
+Live read-only viewer: <https://morikikamio.github.io/fixseal/>. It reads the contract from your browser and rechecks the code hash, rule hash, accept record and the agent key restriction. No wallet or keys.
+
 ## How it works
 
 See the repair → judge → NEAR record → guard diagram at the top.
