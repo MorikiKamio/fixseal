@@ -87,12 +87,10 @@ jobs:
       - name: Contract mock and sandbox integration tests
         env:
           NO_PROXY: 127.0.0.1,localhost
-          no_proxy: 127.0.0.1,localhost
         run: cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --no-fail-fast
       - name: End-to-end chain demo for both subjects
         env:
           NO_PROXY: 127.0.0.1,localhost
-          no_proxy: 127.0.0.1,localhost
         run: |
           scripts/demo.sh --check
           scripts/demo.sh
