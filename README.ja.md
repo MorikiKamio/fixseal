@@ -21,7 +21,7 @@ flowchart LR
     N --> G[ガード: 所有者が一致するaccept式へ差し替え]
 ```
 
-¹ NX1は120ターン上限、done未呼び出し、同じコピーを運用者が再判定。FX3初回証明は復元資料です。モデルの優劣比較ではありません。記録提出者・書き出し器・解釈器・所有者を信頼し、契約はLeanを実行しません。[前提](ASSUMPTIONS.md)。現行ガードのsandbox実送金は[運用者のホスト成功報告](docs/t010-host-check.md#host-result-operator-2026-11-10-1420-jst)が追記されました。今回のオフライン実行とは別です。
+¹ NX1は120ターン上限、done未呼び出し、同じコピーを運用者が再判定。FX3初回証明は復元資料です。モデルの優劣比較ではありません。記録提出者・書き出し器・解釈器・所有者を信頼し、契約はLeanを実行しません。[前提](ASSUMPTIONS.md)。現行ガードはローカル NEAR sandbox（[ログ](docs/demo-output-host-guard.txt)）と **NEAR testnet**（[10件の取引](docs/testnet-run-2026-11-10.md)）で最後まで動きました。
 
 作者: **Moriki Kamio**。[English](README.md) / [審査手順](JUDGES.md) / [エージェント向け](AGENTS.md)。
 
@@ -49,7 +49,7 @@ Bash・Python 3 のみで、インストール・署名なしに実行します�
 scripts/judge-check.sh --stage a
 ```
 
-`PASS A1`（同梱証拠のハッシュ）、`PASS A2`（2題材のバンドル構造と入力・結果・式のハッシュ）、`SKIP(...) A3`、`FAIL=0` を確認します。既定では通信せず、testnet 口座は未記入です。保存済み証拠の整合性を調べる手順で、Lean の再実行やチェーン記録の真正性確認は含みません。2026-11-10 の macOS arm64 で **0.113秒**。60秒は説明の目安で、初回導入時間ではありません。
+`PASS A1`（同梱証拠のハッシュ）、`PASS A2`（2題材のバンドル構造と入力・結果・式のハッシュ）、`SKIP(...) A3`、`FAIL=0` を確認します。既定では通信しません。`--allow-testnet-read` を付けると testnet 上のガードも読み取ります（`PASS A3`、[実行記録](docs/testnet-run-2026-11-10.md)）。保存済み証拠の整合性を調べる手順で、Lean の再実行やチェーン記録の真正性確認は含みません。2026-11-10 の macOS arm64 で **0.113秒**。60秒は説明の目安で、初回導入時間ではありません。
 
 ## 全体版: 実行して結果を見る
 
@@ -114,7 +114,7 @@ T010では、コントラクトが式を持ち、`guard_spend`で解釈してyoc
 
 証明はLeanの`Target.authorize`についてのものです。コントラクトは書き出した式を共有Rust解釈器で評価します。固定の書き出し器・解釈器は信頼の対象で、証明対象ではありません。攻撃12件＋回帰16件＋境界値格子1,000件の突き合わせは**固定入力での検査であり証明ではありません**。記録の提出者を信頼しておりTEEは使いません。誰でも`fixseal-judge verify`で式の再書き出し・ハッシュと証明を再検査できます。
 
-合成データの**仮想空間での検証**です。現行ソースからwasmを再ビルドしたホストで`scripts/demo.sh --guard`を実行すると、桁あふれ送金→記録なし/rejectで差し替え拒否→accept記録で差し替え→同じ攻撃拒否→正当な送金、を検査します。[ホスト確認項目](docs/t010-host-check.md)と[未記入のtestnet証跡雛形](docs/testnet-evidence.md)を用意しました。testnetスクリプトは既存口座・keychainを使用し、鍵やシードを表示・保存しません。この作業ではチェーン実行をしていません。
+合成データの**仮想空間での検証**です。現行ソースからwasmを再ビルドしたホストで`scripts/demo.sh --guard`を実行すると、桁あふれ送金→記録なし/rejectで差し替え拒否→accept記録で差し替え→同じ攻撃拒否→正当な送金、を検査します。[ホスト確認項目](docs/t010-host-check.md)。同じ流れを 2026-11-10 に NEAR testnet でも `scripts/testnet-guard.sh --execute` で実行しました: [取引と読み戻し](docs/testnet-run-2026-11-10.md)。testnetスクリプトは鍵やシードを表示・保存しません。
 
 ## ローカル NEAR デモ
 
@@ -128,6 +128,10 @@ scripts/demo.sh
 `--check` は `Required executables and contract wasm found` と表示する存在確認です。キャッシュや bind 権限は検査しません。デモは判定・デプロイ・mock agent の登録・submit・get・verify を実行し、上表と同じ判定・件数・理由、path → spend 各5版の matched、その後ガードの一連の検査、新しい判定版のハッシュ、exit 0 が期待値です。現行ソースからwasmを再ビルドしてください。ログと JSON は ignored な `demo-artifacts/` へ保存し、ホスト参照ログは上書きしません。
 
 制限環境では bind の EPERM で止まります。チェーンは bind 可能なホストの通常シェルで確認し、制限環境ではチェーンなしの手順を利用します。bind 失敗は成功扱いにしません。[環境別の状態](docs/BLOCKED.md)。
+
+## testnet の実行記録
+
+2026-11-10、NEAR testnet、模擬アテステーション、合成データ（仮想空間での検証）。コントラクト `fixseal-guard.testnet`、wasm の SHA-256 `9fb00594…4c718`（CI でソースから作ったものと同じ）。桁あふれ攻撃で上限 1000 yoctoNEAR を超えて送金 → 記録なし・reject 記録での差し替えは失敗 → accept 記録の修正を導入 → 同じ攻撃は拒否 → 正当な 100 yoctoNEAR は送金。[全取引・鍵・最終状態](docs/testnet-run-2026-11-10.md)。読み取りだけの再確認: `scripts/judge-check.sh --stage a --allow-testnet-read`。
 
 ## 仕組み
 
@@ -161,7 +165,7 @@ fixer: Target.lean + Proof.lean
 
 Lean カーネルが固定仕様に対する証明を検査し、固定の攻撃・回帰テストを再実行します。仕様自体の妥当性、人間の承認履歴、文字列分解、コンパイラ・実行時、symlink・mount・権限・TOCTOU を含む実 OS、任意プログラムや未知の脆弱性は保証範囲外です。構文はデモ用に限定しています。
 
-local attestation は mock。実 TEE / WASI / testnet、オフライン読み戻しの真正性は未確認です。現行ソースのwasm再ビルドとガードsandbox成功は運用者報告で、今回独立にビルドを再現したものではありません。正確な性質と信頼の前提は [ASSUMPTIONS.md](ASSUMPTIONS.md) を確認してください。
+local attestation は mock。実 TEE / WASI、オフライン読み戻しの真正性は未確認です。testnet の実行は使い捨て口座と模擬アテステーションによるものです（[実行記録](docs/testnet-run-2026-11-10.md)）。現行ソースのwasm再ビルドとガードsandbox成功は運用者報告で、今回独立にビルドを再現したものではありません。正確な性質と信頼の前提は [ASSUMPTIONS.md](ASSUMPTIONS.md) を確認してください。
 
 ## 評価・拡張・公開
 

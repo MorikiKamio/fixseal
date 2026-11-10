@@ -70,7 +70,8 @@ estimates. All results are **仮想空間での検証 / simulated environment, s
 | C5 | 10.850 | Both archive tests pass, four attempts reproduced |
 | Full script | 296.814 | 10 PASS, 0 FAIL, 2 SKIP (A3/B4) |
 | Docker build / execution | Unmeasured | Not run; no image fetched or built |
-| GitHub CI / Linux sandbox / testnet views | Unmeasured | Not run in this task |
+| GitHub CI (Ubuntu 24.04) | judge 11m25s; contract-sandbox 10m27s | [Run 42805855129](https://github.com/MorikiKamio/fixseal/actions/runs/42805855129), 2026-11-10 |
+| Testnet views (A3, `--allow-testnet-read`) | 6.8 s | PASS against `fixseal-guard.testnet`, 2026-11-10 ([run](testnet-run-2026-11-10.md)) |
 
 Honest path: attacks 0/11, regressions 11/11. Honest spend: attacks 0/12,
 regressions 16/16, fixed Lean/interpreter comparison on 1,028 inputs (including
@@ -116,8 +117,8 @@ the workflow; none were performed here.
 **CI has not yet run on GitHub.** First public run URL: **<要記入>**. Local arm64
 checks do not establish Linux or macOS CI success; no macOS CI job is configured.
 Current guard wasm and chain effects still need [T010 host checks](t010-host-check.md).
-The older FIX5 logs predate the guard. No testnet run, signing, publishing or
-submission is part of this script.
+The older FIX5 logs predate the guard. This script never signs, publishes or submits; with
+`--allow-testnet-read` it only reads public testnet views ([run](testnet-run-2026-11-10.md)).
 
 ## T013 additions
 

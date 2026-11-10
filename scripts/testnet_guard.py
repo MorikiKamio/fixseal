@@ -69,6 +69,11 @@ class Testnet:
                for key in self.keys.values()):
             raise RuntimeError("Expected public keys only")
         self.evidence = self.output / "testnet-evidence.md"
+        # OS keychain by default; the legacy file keychain suits a headless (ssh) operator host.
+        mode = os.environ.get("FIXSEAL_TESTNET_SIGN_WITH", "keychain")
+        if mode not in ("keychain", "legacy-keychain"):
+            raise RuntimeError("FIXSEAL_TESTNET_SIGN_WITH must be keychain or legacy-keychain")
+        self.sign_with = "sign-with-" + mode
 
     def rpc(self, method, params):
         request = urllib.request.Request(self.rpc_url, data=encoded({
@@ -96,7 +101,7 @@ class Testnet:
         command = ["near", "contract", "call-function", "as-transaction", self.contract, method,
                    "json-args", encoded(args), "prepaid-gas", "100 Tgas", "attached-deposit",
                    "0 NEAR", "sign-as", signer, "network-config", "testnet",
-                   "sign-with-keychain", "--signer-public-key", self.keys[role], "send"]
+                   self.sign_with, "--signer-public-key", self.keys[role], "send"]
         # Capture CLI diagnostics only in memory; never persist or display credential prompts.
         run = subprocess.run(command, text=True, capture_output=True, stdin=subprocess.DEVNULL,
                              timeout=180, check=False)

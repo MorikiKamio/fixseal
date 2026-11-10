@@ -21,7 +21,7 @@ flowchart LR
     N --> G[Guard: owner installs matching accepted expression]
 ```
 
-¹ NX1: 120-turn cap; no `done` call; operator rejudged the same copy. FX3 first proofs are reconstructed. These runs are not a model ranking. The contract trusts the submitter and does not run Lean; the exporter/interpreter and owner remain trusted. [Scope](ASSUMPTIONS.md). The current guard ran end to end on a local NEAR sandbox ([log](docs/demo-output-host-guard.txt)); testnet remains unconfirmed.
+¹ NX1: 120-turn cap; no `done` call; operator rejudged the same copy. FX3 first proofs are reconstructed. These runs are not a model ranking. The contract trusts the submitter and does not run Lean; the exporter/interpreter and owner remain trusted. [Scope](ASSUMPTIONS.md). The current guard ran end to end on a local NEAR sandbox ([log](docs/demo-output-host-guard.txt)) and on **NEAR testnet** ([10 transactions](docs/testnet-run-2026-11-10.md); read-only recheck `scripts/judge-check.sh --stage a --allow-testnet-read`).
 
 Start at the repository root with `scripts/judge-check.sh --stage a`: see A1/A2 pass for saved evidence integrity and A3 skip with networking disabled. Then run `scripts/judge-check.sh` on a prepared Rust/Lean host: see B1–B3/B5 and C1–C5 pass, and B4 skip for the separate sandbox demo. All examples use a **simulated environment, synthetic data**. Check both the verdict and verification status; a reproduced rejection can be `VERIFIED`. [Claim → check ID → prerequisites](README.md#full-evaluation--do-x-see-y), [timings and Docker](docs/judge-check.md), [background and independent status](README.md).
 

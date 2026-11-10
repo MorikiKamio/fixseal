@@ -21,7 +21,7 @@ flowchart LR
     N --> G[Guard: owner installs matching accepted expression]
 ```
 
-¹ NX1: 120-turn cap; no `done` call; operator rejudged the same copy. FX3 first proofs are reconstructed. These runs are not a model ranking. The contract trusts the submitter and does not run Lean; the exporter/interpreter and owner remain trusted. [Scope](ASSUMPTIONS.md). The current guard ran end to end on a local NEAR sandbox ([log](docs/demo-output-host-guard.txt)); testnet remains unconfirmed.
+¹ NX1: 120-turn cap; no `done` call; operator rejudged the same copy. FX3 first proofs are reconstructed. These runs are not a model ranking. The contract trusts the submitter and does not run Lean; the exporter/interpreter and owner remain trusted. [Scope](ASSUMPTIONS.md). The current guard ran end to end on a local NEAR sandbox ([log](docs/demo-output-host-guard.txt)) and on **NEAR testnet** ([10 transactions](docs/testnet-run-2026-11-10.md)).
 
 Author: **Moriki Kamio**. [Japanese](README.ja.md) · [Evaluation details](JUDGES.md) · [Agent instructions](AGENTS.md).
 
@@ -48,7 +48,7 @@ Only Bash and Python 3 are required; curl is optional for a separately authorize
 scripts/judge-check.sh --stage a
 ```
 
-See `PASS A1` for the packaged evidence hashes and `PASS A2` for two bundles' structure and input/result/expression hashes. Expect `SKIP(...) A3` and `FAIL=0`: network access is disabled by default, and the testnet account is unfilled. This inspects saved evidence; it does **not** rerun Lean or authenticate a chain record. Local warm-cache measurement: **0.113 seconds** on macOS arm64 (2026-11-10); 60 seconds is a presentation budget, not an installation estimate.
+See `PASS A1` for the packaged evidence hashes and `PASS A2` for two bundles' structure and input/result/expression hashes. Expect `SKIP(...) A3` and `FAIL=0`: network access is disabled by default. Add `--allow-testnet-read` to also read the live testnet guard (`PASS A3`; [run](docs/testnet-run-2026-11-10.md)). This inspects saved evidence; it does **not** rerun Lean or authenticate a chain record. Local warm-cache measurement: **0.113 seconds** on macOS arm64 (2026-11-10); 60 seconds is a presentation budget, not an installation estimate.
 
 ## Full evaluation — do X, see Y
 
@@ -147,7 +147,7 @@ Saturation differs from the specification at the maximum limit: `limit = spent =
 
 [The guard guide](docs/guard.md) defines the expression format, contract API, function-call key setup and operator steps. `guard_spend` evaluates the active expression and sends real yoctoNEAR from contract funds; `guard_set_policy` requires a matching accept/spend record, fixed spec and allowlisted judge. A restricted agent key permits only `guard_spend`, with zero attached deposit. The local scenario demonstrates overflow payment, missing/reject-record refusals, an accepted replacement, attack refusal and a legitimate payment. Use `scripts/demo.sh --guard` on a prepared host; the [host result](docs/t010-host-check.md#host-result-operator-2026-11-10-1420-jst) reports a successful fresh-wasm sandbox run. This offline task did not execute it.
 
-The Lean proof concerns Lean's `Target.authorize`. The exported expression and shared Rust interpreter are trusted, outside the proof. Comparison on 12 attacks + 16 regressions + 1,000 boundary triples is a fixed-input **check, not a proof**. The record submitter is trusted; no TEE is used. Anyone can rerun `fixseal-judge verify`, including re-export and hash checking. [Testnet script and evidence template](docs/testnet-evidence.md) are for a separately authorized operator run; no testnet execution is claimed.
+The Lean proof concerns Lean's `Target.authorize`. The exported expression and shared Rust interpreter are trusted, outside the proof. Comparison on 12 attacks + 16 regressions + 1,000 boundary triples is a fixed-input **check, not a proof**. The record submitter is trusted; no TEE is used. Anyone can rerun `fixseal-judge verify`, including re-export and hash checking. The same scenario ran on NEAR testnet on 2026-11-10 with `scripts/testnet-guard.sh --execute`: [transactions and readback](docs/testnet-run-2026-11-10.md).
 
 ## Real AI fixers, blind run
 
@@ -177,6 +177,10 @@ scripts/demo.sh
 `--check` reports `Required executables and contract wasm found` and checks presence only; it does not test caches or bind permissions. The demo runs path then spend, five fixes each, then the guard scenario. Rebuild the contract wasm from current source first; `scripts/demo.sh --guard` selects the guard alone. The existing FIX5 log predates this guard. Use `scripts/demo.sh --subject path` or `--subject spend` to select one. Expect the path counts above and the spend counts above, ten `matched` entries in total and exit 0 on a permitted host. Logs and bundles go to ignored `demo-artifacts/`, with bundles under each subject name; the host reference log is preserved.
 
 Sandboxed coding environments may fail with `Operation not permitted` while binding a socket. Run the chain demo in a host shell with loopback permissions; use the offline quick start in the restricted environment. Such a failure is not a successful chain run. [Environment status](docs/BLOCKED.md).
+
+## Testnet evidence
+
+2026-11-10, NEAR testnet, local/mock attestation, synthetic data (仮想空間での検証). Contract `fixseal-guard.testnet`, wasm SHA-256 `9fb00594…4c718` (same as the CI source build). The overflow attack paid out past the 1000 yoctoNEAR cap; replacement without a record and with a reject record failed; the accept-recorded fix was installed; the same attack was refused; a legitimate 100 yoctoNEAR spend went through. [All transactions, keys and final state](docs/testnet-run-2026-11-10.md). Read-only recheck: `scripts/judge-check.sh --stage a --allow-testnet-read`.
 
 ## How it works
 
@@ -210,7 +214,7 @@ Proof checking follows behavioral checks; a behavioral rejection need not also l
 
 The kernel checked a proof against the fixed list-based specification, and the judge reran fixed attack/regression tests. This does not cover arbitrary programs, unseen vulnerabilities, the correctness of the specification, string parsing, the compiler/runtime, or real filesystem behavior (symlinks, permissions, mounts, TOCTOU). Spec review and approval history are still an operator responsibility. Syntax is deliberately restricted; this is not a general Lean sandbox.
 
-The local agent uses mock attestation. Real TEE, WASI, testnet and authenticity of an offline chain readback are unconfirmed. The guard ran end to end on a local NEAR sandbox with wasm rebuilt from current source ([log](docs/demo-output-host-guard.txt)). NEAR records a claim; a matching hash is not a security certification. Read [ASSUMPTIONS.md](ASSUMPTIONS.md) for the exact properties and trust assumptions.
+The local agent uses mock attestation. Real TEE, WASI and authenticity of an offline chain readback are unconfirmed; the testnet run used disposable accounts and mock attestation ([run](docs/testnet-run-2026-11-10.md)). The guard ran end to end on a local NEAR sandbox with wasm rebuilt from current source ([log](docs/demo-output-host-guard.txt)). NEAR records a claim; a matching hash is not a security certification. Read [ASSUMPTIONS.md](ASSUMPTIONS.md) for the exact properties and trust assumptions.
 
 ## Evaluate, extend, distribute
 

@@ -1,12 +1,14 @@
 # Testnet guard evidence template
 
 No testnet transaction has been executed for T010. This is a template, not evidence of success.
+
+Completed run: [testnet-run-2026-11-10.md](testnet-run-2026-11-10.md).
 The operator script copies this file to a fresh `demo-artifacts/testnet-guard/` directory and appends public transaction hashes and final receipt outcomes, including expected rejections. Keep a partial run as failed/incomplete; a transaction hash alone is not success.
 
 - Run date: pending operator run
 - Network: testnet
-- Judge-check contract account: ``
-- Judge-check accepted record ID: ``
+- Judge-check contract account: `fixseal-guard.testnet`
+- Judge-check accepted record ID: `c3648c7670ef2095eed61998a699c09d4bc2f8054a81df03272fcdc406d9ffcb`
 - Environment: **simulated environment, synthetic data** / 仮想空間での検証
 - Rebuilt wasm SHA-256 and source/build provenance: pending
 - Judge: `0.1.0/lean-spend-4`
