@@ -80,10 +80,15 @@ jobs:
       - name: Prepare locked contract dependencies
         run: cargo fetch --manifest-path agent-contract/Cargo.toml --locked
       - name: Build contract from source
+        # Same pinned cargo-near image as local builds (it ships the wasm C toolchain ring needs).
+        # The repository root is mounted because the contract includes shared/policy_expr.rs.
         run: |
-          cargo build --manifest-path agent-contract/Cargo.toml --target wasm32-unknown-unknown --release --locked --offline
-          mkdir -p agent-contract/target/near
-          cp agent-contract/target/wasm32-unknown-unknown/release/shade_contract_template.wasm agent-contract/target/near/shade_contract_template.wasm
+          chmod -R a+rwX "$GITHUB_WORKSPACE"
+          docker run --rm -v "$GITHUB_WORKSPACE:/host" -w /host/agent-contract \
+            sourcescan/cargo-near:0.19.0-rust-1.86.0 \
+            cargo near build non-reproducible-wasm --locked --no-abi
+          test -s agent-contract/target/near/shade_contract_template.wasm
+          sha256sum agent-contract/target/near/shade_contract_template.wasm
       - name: Contract mock and sandbox integration tests
         env:
           NO_PROXY: 127.0.0.1,localhost
