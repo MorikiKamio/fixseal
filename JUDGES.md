@@ -25,7 +25,7 @@ flowchart LR
 
 Start at the repository root with `scripts/judge-check.sh --stage a`: see A1/A2 pass for saved evidence integrity and A3 skip with networking disabled. Then run `scripts/judge-check.sh` on a prepared Rust/Lean host: see B1–B3/B5 and C1–C5 pass, and B4 skip for the separate sandbox demo. All examples use a **simulated environment, synthetic data**. Check both the verdict and verification status; a reproduced rejection can be `VERIFIED`. [Claim → check ID → prerequisites](README.md#full-evaluation--do-x-see-y), [timings and Docker](docs/judge-check.md), [background and independent status](README.md).
 
-CI has **not yet run on GitHub**. First public execution-log URL: added after the first public CI run. The current guard ran end to end on a local NEAR sandbox with freshly built wasm ([log](docs/demo-output-host-guard.txt)); the historical FIX5 logs predate that guard.
+CI passed on GitHub ([run](https://github.com/MorikiKamio/fixseal/actions/runs/42805855129)): judge-check.sh, contract tests, and the sandbox demo with all guard steps; the wasm built in CI has the same SHA-256 as the local build (`9fb00594…4c718`). The current guard also ran end to end on a local NEAR sandbox with freshly built wasm ([log](docs/demo-output-host-guard.txt)); the historical FIX5 logs predate that guard.
 
 ## Prerequisites
 

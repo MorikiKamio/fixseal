@@ -78,7 +78,7 @@ scripts/judge-check.sh
 | 3者のAI修正を再現（FX3の4試行とNX1最終版） | C5 | C1 と同じ。初回証明は復元、新しい盲検実験ではない |
 | 固定版の審査イメージで B/C を実行 | D1 | `--docker`、Docker、別途準備済みイメージ。実行時通信なし |
 
-[詳細・計測表・Docker 手順](docs/judge-check.md)。Docker と CI の時間は**未計測**。Ubuntu で同じスクリプトと Linux sandbox デモを実行する CI を設定しましたが、**GitHub ではまだ実行していません**。公開後の最初の実行ログ URL: 初回の公開 CI 実行後に追記。macOS CI は未設定で、今回のローカル計測は arm64 です。
+[詳細・計測表・Docker 手順](docs/judge-check.md)。Docker の時間は**未計測**。GitHub の CI(Ubuntu 24.04)は 2026-11-10 に2つのジョブとも通りました: `judge`(judge-check.sh、11分25秒)と `contract-sandbox`(固定版 cargo-near イメージでソースから wasm を作成し SHA-256 `9fb00594…4c718` がローカルと一致、コントラクトのテスト、ガードの全段階を含むサンドボックスのデモ、10分27秒)。[CI の実行ログ](https://github.com/MorikiKamio/fixseal/actions/runs/42805855129)。macOS CI は未設定で、今回のローカル計測は arm64 です。
 
 ## 5つの修正版
 

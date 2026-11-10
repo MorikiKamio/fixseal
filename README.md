@@ -77,7 +77,7 @@ See one `PASS` / `FAIL` / `SKIP(reason)` line per ID, durations and a final coun
 | Three AI fixers: four FX3 attempts plus NX1 final replay | C5 | Same as C1; reconstructed first proofs, not a new blind run |
 | B/C execute in the pinned review image | D1 | `--docker`, Docker, separately prebuilt image; runtime network disabled |
 
-Timing details, Docker provisioning and skip semantics: [judge-check guide](docs/judge-check.md). Docker build/runtime and CI timings are **unmeasured**. CI is configured for Ubuntu and the Linux sandbox demo, but **has not yet run on GitHub**. First public CI run URL: added after the first public CI run. This is a placeholder, not evidence of a pass. A macOS CI job is not configured; the local measurements use arm64.
+Timing details, Docker provisioning and skip semantics: [judge-check guide](docs/judge-check.md). Docker build/runtime timings are **unmeasured**. CI on GitHub (Ubuntu 24.04) passed both jobs on 2026-11-10: `judge` (judge-check.sh, 11m25s) and `contract-sandbox` (wasm built from source in the pinned cargo-near image, SHA-256 `9fb00594…4c718`, matching the local build; contract tests; the full sandbox demo including all guard steps, 10m27s). [CI run](https://github.com/MorikiKamio/fixseal/actions/runs/42805855129). A macOS CI job is not configured; the local measurements use arm64.
 
 ## Five fixes, one accepted
 

@@ -71,6 +71,7 @@ new-release/
 /docs/demo-output.txt
 /docs/verify-output.txt
 /docs/demo-output-host-*.txt
+!/docs/demo-output-host-guard.txt
 !/docs/demo-output-host-path5.txt
 !/docs/demo-output-host-t008.txt
 /scripts/export-public.py
