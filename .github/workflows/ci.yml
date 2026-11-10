@@ -75,8 +75,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/near-sandbox"
           curl --fail --location --retry 3 https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.11.0/near-sandbox.tar.gz -o "$RUNNER_TEMP/near-sandbox.tar.gz"
           tar -xzf "$RUNNER_TEMP/near-sandbox.tar.gz" -C "$RUNNER_TEMP/near-sandbox"
-          test -x "$RUNNER_TEMP/near-sandbox/near-sandbox"
-          echo "NEAR_SANDBOX_BIN_PATH=$RUNNER_TEMP/near-sandbox/near-sandbox" >> "$GITHUB_ENV"
+          test -x "$RUNNER_TEMP/near-sandbox/Linux-x86_64/near-sandbox"
+          echo "NEAR_SANDBOX_BIN_PATH=$RUNNER_TEMP/near-sandbox/Linux-x86_64/near-sandbox" >> "$GITHUB_ENV"
       - name: Prepare locked contract dependencies
         run: cargo fetch --manifest-path agent-contract/Cargo.toml --locked
       - name: Build contract from source
