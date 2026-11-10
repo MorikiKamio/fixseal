@@ -1,0 +1,30 @@
+Fixseal: 仮想空間での検証 (local NEAR sandbox; no account or external network)
+Sandbox binary: <HOME>/Developer/fixseal/agent-contract/target/debug/build/near-sandbox-0c57812bc47fa7f6/out/.near/near-sandbox-2.11.0/near-sandbox
+neard (release 2.11.0) (build 2.11.0) (commit 72dbd0f789a427bed7e7552070b1828794f122b9) (rustc 1.86.0) (min_protocol 80) (protocol 83) (db 48)
+features: [default, dump_test_contract, json_rpc, near_dump_test_contract, rosetta_rpc, sandbox]
+ℹ [5/13] Replayed Audit
+info: Audit.lean:6:0: 'checked_patch' depends on axioms: [propext, Quot.sound]
+Build completed successfully (13 jobs).
+   Compiling fixseal-judge v0.1.0 (<HOME>/Developer/fixseal/judge)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+ℹ [5/11] Replayed Audit
+info: Audit.lean:5:0: 'checked_patch' depends on axioms: [propext, Classical.choice, Quot.sound]
+Build completed successfully (11 jobs).
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+warning: the following packages contain code that will be rejected by a future version of Rust: wasmparser v0.78.2
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/local_demo.rs (<HOME>/Developer/fixseal/agent-contract/target/debug/deps/local_demo-2934e9b7664a8a0e)
+
+running 1 test
+Guard: 仮想空間での検証 / simulated environment, synthetic data; spend policies exported and judged
+Guard: registered agent key restricted to guard_spend on this contract
+Guard: overflow attack transferred 18446744073709551716 yoctoNEAR; limit=1000, wrapped spent=100
+Guard: replacement without a record rejected (Guard record missing)
+Guard: rejected saturation record could not replace policy
+Guard: accept record installed the exported policy; chain readback and replay matched
+Guard: same overflow attack rejected; recipient balance unchanged
+Guard: legitimate 100 yoctoNEAR paid; history=1; restricted key rejected guard_set_policy
+test local_guard_demo ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 45.33s
+
