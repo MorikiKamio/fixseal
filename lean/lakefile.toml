@@ -1,0 +1,21 @@
+name = "fixseal"
+version = "0.1.0"
+defaultTargets = ["Audit", "pathcheck"]
+
+[[lean_lib]]
+name = "Spec"
+
+[[lean_lib]]
+name = "Path"
+
+[[lean_lib]]
+name = "Candidate"
+srcDir = "after_honest"
+roots = ["Target", "Proof"]
+
+[[lean_lib]]
+name = "Audit"
+
+[[lean_exe]]
+name = "pathcheck"
+root = "Main"

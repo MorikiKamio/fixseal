@@ -1,0 +1,5 @@
+{
+  "editable_paths": ["path.fn"],
+  "immutable_paths": ["tests/regression.json"],
+  "forbid_attack_literals": true
+}

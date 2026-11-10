@@ -1,0 +1,26 @@
+{
+  "editable_paths": [
+    "Target.lean",
+    "Proof.lean"
+  ],
+  "immutable_paths": [
+    "SpendSpec.lean",
+    "Main.lean",
+    "Audit.lean",
+    "lakefile.toml",
+    "lean-toolchain",
+    "tests/regression.json"
+  ],
+  "forbid_attack_literals": true,
+  "target_forbidden_identifiers": [
+    "toNat", "Nat", "Int", "toInt", "toBitVec", "BitVec", "val", "toFin", "Fin",
+    "UInt8", "UInt16", "UInt32", "UInt128", "UInt256", "USize",
+    "Int8", "Int16", "Int32", "Int64", "ISize", "Float", "Float32",
+    "toUInt8", "toUInt16", "toUInt32", "toUInt128", "toUInt256", "toUSize",
+    "toInt8", "toInt16", "toInt32", "toInt64", "toISize", "toFloat", "toFloat32",
+    "size", "ofNat", "ofNatLT", "ofInt", "ofBitVec", "ofFin", "modn",
+    "open", "export", "abbrev", "notation", "infix", "infixl", "infixr", "prefix", "postfix",
+    "macro", "macro_rules", "syntax", "elab", "elab_rules", "local", "scoped",
+    "match", "by", "casesOn", "rec", "recOn", "brecOn"
+  ]
+}

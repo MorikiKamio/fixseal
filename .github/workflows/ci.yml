@@ -1,0 +1,103 @@
+name: Fixseal CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  FIXSEAL_LEAN_TIMEOUT_SECS: '120'
+
+jobs:
+  judge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      # CI provisions dependencies; local evaluation uses prepared caches and --offline.
+      - name: Prepare Lean 4.34.1
+        run: |
+          curl --fail --location --retry 3 https://github.com/leanprover/lean4/releases/download/v4.34.1/lean-4.34.1-linux.tar.zst -o "$RUNNER_TEMP/lean.tar.zst"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" -C "$RUNNER_TEMP"
+          echo "FIXSEAL_LEAN_BIN=$RUNNER_TEMP/lean-4.34.1-linux/bin" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/lean-4.34.1-linux/bin" >> "$GITHUB_PATH"
+      - name: Cache locked judge dependencies
+        run: |
+          cargo fetch --manifest-path judge/Cargo.toml --locked
+          cargo fetch --manifest-path agent-contract/Cargo.toml --locked
+      - name: Format
+        run: cargo fmt --manifest-path judge/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path judge/Cargo.toml --locked --offline --all-targets -- -D warnings
+      - name: One-command judge evaluation
+        run: scripts/judge-check.sh
+      - name: Evidence checker and workflow tests
+        run: |
+          python3 -m unittest scripts/test_judge_check.py
+          python3 fixers/nearai/test_run_fixer.py
+          python3 scripts/check-spend-proof-leak.py --self-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: judge-check-logs
+          path: demo-artifacts/judge-check/
+
+  contract-sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Linux runners normally allow loopback bind; restricted containers may return EPERM.
+    # This job can also fail on sandbox download/architecture, missing wasm target,
+    # native runtime compatibility, resource limits, or a source-built wasm mismatch.
+    # Failures stay visible; they are not skipped or converted into a successful check.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          targets: wasm32-unknown-unknown
+      - name: Prepare Lean 4.34.1
+        run: |
+          curl --fail --location --retry 3 https://github.com/leanprover/lean4/releases/download/v4.34.1/lean-4.34.1-linux.tar.zst -o "$RUNNER_TEMP/lean.tar.zst"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" -C "$RUNNER_TEMP"
+          echo "FIXSEAL_LEAN_BIN=$RUNNER_TEMP/lean-4.34.1-linux/bin" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/lean-4.34.1-linux/bin" >> "$GITHUB_PATH"
+      - name: Cache locked judge dependencies
+        run: cargo fetch --manifest-path judge/Cargo.toml --locked
+      - name: Prepare sandbox 2.11.0
+        run: |
+          mkdir -p "$RUNNER_TEMP/near-sandbox"
+          curl --fail --location --retry 3 https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/Linux-x86_64/2.11.0/near-sandbox.tar.gz -o "$RUNNER_TEMP/near-sandbox.tar.gz"
+          tar -xzf "$RUNNER_TEMP/near-sandbox.tar.gz" -C "$RUNNER_TEMP/near-sandbox"
+          test -x "$RUNNER_TEMP/near-sandbox/near-sandbox"
+          echo "NEAR_SANDBOX_BIN_PATH=$RUNNER_TEMP/near-sandbox/near-sandbox" >> "$GITHUB_ENV"
+      - name: Prepare locked contract dependencies
+        run: cargo fetch --manifest-path agent-contract/Cargo.toml --locked
+      - name: Build contract from source
+        run: |
+          cargo build --manifest-path agent-contract/Cargo.toml --target wasm32-unknown-unknown --release --locked --offline
+          mkdir -p agent-contract/target/near
+          cp agent-contract/target/wasm32-unknown-unknown/release/shade_contract_template.wasm agent-contract/target/near/shade_contract_template.wasm
+      - name: Contract mock and sandbox integration tests
+        env:
+          NO_PROXY: 127.0.0.1,localhost
+          no_proxy: 127.0.0.1,localhost
+        run: cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --no-fail-fast
+      - name: End-to-end chain demo for both subjects
+        env:
+          NO_PROXY: 127.0.0.1,localhost
+          no_proxy: 127.0.0.1,localhost
+        run: |
+          scripts/demo.sh --check
+          scripts/demo.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sandbox-demo-logs
+          path: demo-artifacts/

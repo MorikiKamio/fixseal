@@ -1,0 +1,15 @@
+{
+  "public": ["../secret.txt"],
+  "variants": [
+    "%2e%2e/secret.txt",
+    "%2E%2E%2Fsecret.txt",
+    "..%2fsecret.txt",
+    "reports/../../secret.txt",
+    "../../secret.txt",
+    "/sandbox/secret.txt",
+    "%2fsandbox%2fsecret.txt",
+    "../files_evil/secret.txt",
+    "..//secret.txt",
+    "%2e./secret.txt"
+  ]
+}

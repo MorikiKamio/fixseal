@@ -1,0 +1,5 @@
+{
+  "editable_paths": ["Target.lean", "Proof.lean"],
+  "immutable_paths": ["Spec.lean", "Path.lean", "Main.lean", "Audit.lean", "lakefile.toml", "lean-toolchain", "tests/regression.json"],
+  "forbid_attack_literals": true
+}

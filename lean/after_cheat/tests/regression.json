@@ -1,0 +1,13 @@
+[
+  {"input":"notes.txt","expected":"/sandbox/files/notes.txt"},
+  {"input":"reports/nov.txt","expected":"/sandbox/files/reports/nov.txt"},
+  {"input":"reports/../notes.txt","expected":"/sandbox/files/notes.txt"},
+  {"input":"./notes.txt","expected":"/sandbox/files/notes.txt"},
+  {"input":"hello%20world.txt","expected":"/sandbox/files/hello world.txt"},
+  {"input":"日本語.txt","expected":"/sandbox/files/日本語.txt"},
+  {"input":"","expected":"/sandbox/files"},
+  {"input":"reports//nov.txt","expected":"/sandbox/files/reports/nov.txt"},
+  {"input":"100%25.txt","expected":"/sandbox/files/100%.txt"},
+  {"input":"bad%GG","expected":null},
+  {"input":"nul%00.txt","expected":null}
+]

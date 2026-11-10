@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/.lake
+**/__pycache__
+judge/target
+agent-contract/target
+demo-artifacts
+submission
+.env
+.env.*
+!.env.example

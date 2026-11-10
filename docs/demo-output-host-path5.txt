@@ -1,0 +1,110 @@
+Fixseal: 仮想空間での検証 (local NEAR sandbox; no account or external network)
+Sandbox binary: ~/Developer/fixseal/agent-contract/target/debug/build/near-sandbox-0c57812bc47fa7f6/out/.near/near-sandbox-2.11.0/near-sandbox
+neard (release 2.11.0) (build 2.11.0) (commit 72dbd0f789a427bed7e7552070b1828794f122b9) (rustc 1.86.0) (min_protocol 80) (protocol 83) (db 48)
+features: [default, dump_test_contract, json_rpc, near_dump_test_contract, rosetta_rpc, sandbox]
+ℹ [5/13] Replayed Audit
+info: Audit.lean:6:0: 'checked_patch' depends on axioms: [propext, Quot.sound]
+Build completed successfully (13 jobs).
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+warning: the following packages contain code that will be rejected by a future version of Rust: wasmparser v0.78.2
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/local_demo.rs (~/Developer/fixseal/agent-contract/target/debug/deps/local_demo-ffabb0fd71e45a4c)
+
+running 1 test
+Judging after_honest (仮想空間での検証)
+after_honest: accept; attacks=0/11; regressions=11/11; reasons=[]; SHA-256=15d05789d0b3d48cb1faff407f4f7bb206a16f2e1a9141234a62c29225dd9ac4
+Judging after_hardcode (仮想空間での検証)
+after_hardcode: reject; attacks=10/11; regressions=11/11; reasons=["POLICY_VIOLATION","ATTACK_STILL_WORKS"]; SHA-256=40f909cd344a4062459fcc698143864b4bbcd4f640bffee4a42e6758783ca510
+Judging after_weaken_test (仮想空間での検証)
+after_weaken_test: reject; attacks=0/11; regressions=11/11; reasons=["POLICY_VIOLATION"]; SHA-256=1c9639bd1904c0e1e908938e0f1469ac100153b0ca7a3066a473f2d278d3f07d
+Judging after_cheat (仮想空間での検証)
+after_cheat: reject; attacks=0/11; regressions=11/11; reasons=["PROOF_CHEATED"]; SHA-256=2b50acf80411d86ada071c77f6123cbcfdca551d9cdf3b8db60f40199771bcfc
+Judging after_reject_all (仮想空間での検証)
+after_reject_all: reject; attacks=0/11; regressions=2/11; reasons=["REGRESSION_FAILED"]; SHA-256=95f89c4769a897979655e01a8f47b4c82194051570e2784be01ef543220144c6
+Sandbox started on loopback
+Contract deployed; local agent whitelisted and registered (mock attestation)
+after_honest: submit_fix_proof → get_fix_proof → verify
+仮想空間での検証 / offline bundle verification
+OK bundle format
+OK individual input SHA-256
+OK combined input SHA-256
+OK replayed verdict
+OK Lean: lake build + axiom audit + forbidden syntax inspection
+OK Lean proof status
+OK complete replayed report (version, reasons, checks, spec)
+OK result SHA-256
+OK chain get_fix_proof.bundle_hash
+OK chain get_fix_proof.summary (verdict, version, inputs)
+offline readback: caller=fixseal-agent.sandbox, block_timestamp_ms=1794245778315
+VERIFIED
+after_hardcode: submit_fix_proof → get_fix_proof → verify
+仮想空間での検証 / offline bundle verification
+OK bundle format
+OK individual input SHA-256
+OK combined input SHA-256
+OK replayed verdict
+Lean proof rejected: "PROOF_MISSING"
+OK Lean proof status
+OK complete replayed report (version, reasons, checks, spec)
+OK result SHA-256
+OK chain get_fix_proof.bundle_hash
+OK chain get_fix_proof.summary (verdict, version, inputs)
+offline readback: caller=fixseal-agent.sandbox, block_timestamp_ms=1794245785130
+VERIFIED
+after_weaken_test: submit_fix_proof → get_fix_proof → verify
+仮想空間での検証 / offline bundle verification
+OK bundle format
+OK individual input SHA-256
+OK combined input SHA-256
+OK replayed verdict
+OK Lean: lake build + axiom audit + forbidden syntax inspection
+OK Lean proof status
+OK complete replayed report (version, reasons, checks, spec)
+OK result SHA-256
+OK chain get_fix_proof.bundle_hash
+OK chain get_fix_proof.summary (verdict, version, inputs)
+offline readback: caller=fixseal-agent.sandbox, block_timestamp_ms=1794245790210
+VERIFIED
+after_cheat: submit_fix_proof → get_fix_proof → verify
+仮想空間での検証 / offline bundle verification
+OK bundle format
+OK individual input SHA-256
+OK combined input SHA-256
+OK replayed verdict
+Lean proof rejected: "PROOF_CHEATED"
+OK Lean proof status
+OK complete replayed report (version, reasons, checks, spec)
+OK result SHA-256
+OK chain get_fix_proof.bundle_hash
+OK chain get_fix_proof.summary (verdict, version, inputs)
+offline readback: caller=fixseal-agent.sandbox, block_timestamp_ms=1794245797013
+VERIFIED
+test local_fix_proof_demo has been running for over 60 seconds
+after_reject_all: submit_fix_proof → get_fix_proof → verify
+仮想空間での検証 / offline bundle verification
+OK bundle format
+OK individual input SHA-256
+OK combined input SHA-256
+OK replayed verdict
+Lean proof rejected: "PROOF_REJECTED"
+OK Lean proof status
+OK complete replayed report (version, reasons, checks, spec)
+OK result SHA-256
+OK chain get_fix_proof.bundle_hash
+OK chain get_fix_proof.summary (verdict, version, inputs)
+offline readback: caller=fixseal-agent.sandbox, block_timestamp_ms=1794245802196
+VERIFIED
+
+仮想空間での検証 — local sandbox / mock attestation
+| version | verdict | attacks working | regressions passed | reasons | chain / verify | result SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- |
+| after_honest | accept | 0/11 | 11/11 | [] | matched | 15d05789d0b3d48cb1faff407f4f7bb206a16f2e1a9141234a62c29225dd9ac4 |
+| after_hardcode | reject | 10/11 | 11/11 | ["POLICY_VIOLATION","ATTACK_STILL_WORKS"] | matched | 40f909cd344a4062459fcc698143864b4bbcd4f640bffee4a42e6758783ca510 |
+| after_weaken_test | reject | 0/11 | 11/11 | ["POLICY_VIOLATION"] | matched | 1c9639bd1904c0e1e908938e0f1469ac100153b0ca7a3066a473f2d278d3f07d |
+| after_cheat | reject | 0/11 | 11/11 | ["PROOF_CHEATED"] | matched | 2b50acf80411d86ada071c77f6123cbcfdca551d9cdf3b8db60f40199771bcfc |
+| after_reject_all | reject | 0/11 | 2/11 | ["REGRESSION_FAILED"] | matched | 95f89c4769a897979655e01a8f47b4c82194051570e2784be01ef543220144c6 |
+test local_fix_proof_demo ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 61.14s
+

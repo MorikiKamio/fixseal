@@ -1,0 +1,66 @@
+[
+  {
+    "input": "0 0 0",
+    "expected": "true"
+  },
+  {
+    "input": "1 0 1",
+    "expected": "true"
+  },
+  {
+    "input": "1 1 0",
+    "expected": "true"
+  },
+  {
+    "input": "10 4 6",
+    "expected": "true"
+  },
+  {
+    "input": "100 99 1",
+    "expected": "true"
+  },
+  {
+    "input": "18446744073709551615 18446744073709551615 0",
+    "expected": "true"
+  },
+  {
+    "input": "18446744073709551615 0 18446744073709551615",
+    "expected": "true"
+  },
+  {
+    "input": "18446744073709551615 18446744073709551614 1",
+    "expected": "true"
+  },
+  {
+    "input": "0 0 1",
+    "expected": "false"
+  },
+  {
+    "input": "0 1 0",
+    "expected": "false"
+  },
+  {
+    "input": "10 6 5",
+    "expected": "false"
+  },
+  {
+    "input": "9 10 0",
+    "expected": "false"
+  },
+  {
+    "input": "100 50 51",
+    "expected": "false"
+  },
+  {
+    "input": "18446744073709551614 18446744073709551615 0",
+    "expected": "false"
+  },
+  {
+    "input": "9223372036854775808 9223372036854775808 1",
+    "expected": "false"
+  },
+  {
+    "input": "9223372036854775808 4611686018427387904 4611686018427387904",
+    "expected": "true"
+  }
+]

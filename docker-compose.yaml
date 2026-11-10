@@ -1,0 +1,14 @@
+services:
+  shade-agent-app:
+    environment:
+      AGENT_CONTRACT_ID: ${AGENT_CONTRACT_ID}
+      SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
+      SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
+    platform: linux/amd64
+    image: pivortex/my-first-agent@sha256:dbf51ca2f7990045dae515ebcdbefcdaccac61eb958e87585af8aee71cf1782b
+    container_name: shade-agent-app
+    ports:
+      - 3000:3000
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    restart: always
