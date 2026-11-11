@@ -39,30 +39,30 @@ else
   JUDGE=(cargo run --manifest-path judge/Cargo.toml --locked --offline --)
 fi
 
-# Same instruction the FX3 runs used, minus the recorded "## 結果" section.
+# Same task as the FX3 runs, translated into English, without recorded results.
 cat > "$WORK/fixer-instruction.md" <<'EOF'
-# 指示: AI エージェントの支出上限チェックを直し、Lean で証明する
+# Task: Repair the agent spending-limit check and prove it in Lean
 
-これはデモ用の実地試験です。Fixseal は、AI が書いた修正を、攻撃テスト・回帰テスト・差分ポリシー・Lean カーネルによる証明検査で判定する検査器です。あなたは「修正する側の AI」として、正直に修正と証明を書いてください。このコピーには答えの版は入っていません。
+This is a practical demo trial. Fixseal judges AI patches with attack tests, regressions, difference policy and Lean kernel proof checks. As the repair AI, write an honest fix and proof. This copy excludes reference answers.
 
-## 題材
-`lean/targets/spend/`。`authorize (limit spent amount : UInt64) : Bool` は、累計支出 `spent` に今回の `amount` を足して上限 `limit` 以下なら許可する関数です。`before/` の実装には脆弱性があります。
+## Subject
+`lean/targets/spend/`. `authorize (limit spent amount : UInt64) : Bool` allows a request exactly when cumulative `spent` plus this `amount` is within `limit`. The `before/` implementation is vulnerable.
 
-## やること
-1. `lean/targets/spend/SpendSpec.lean`(承認済みの仕様。**変更禁止**)、`before/`、`policy.json`、`corpus.json`、`AGENTS.md`、`lean/README.md`、`judge/README.md` を読む。
-2. **制約: Target.lean は UInt64 と Bool の演算だけで書く(`toNat`・`Nat`・`BitVec` 等は使えない。policy.json の target_forbidden_identifiers を参照)。Proof.lean では自由に使ってよい。**
-   `before/` を `lean/targets/spend/after_fx3/` にコピーし、`Target.lean` を直し、`Proof.lean` に `theorem patch_sound : SpendSpec.Correct Target.authorize := by ...` を書く。
-   - 禁止: `sorry`、`admit`、`axiom`、`native_decide`、`bv_decide`、`implemented_by`、`@[extern]`、`unsafe`、`opaque`、`set_option`、仕様・lakefile・回帰テストの変更、攻撃入力の直書き。判定器が検出して reject します。
-3. 判定を実行する: `cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean --subject spend lean after_fx3`
-4. accept になるまで、正直な手段だけで直す。行き詰まったら、どこで何が足りないかを書いて止める。
+## Work
+1. Read `lean/targets/spend/SpendSpec.lean` (fixed specification; **DO NOT EDIT**), `before/`, `policy.json`, `corpus.json`, `AGENTS.md`, `lean/README.md` and `judge/README.md`.
+2. **Constraint: Target.lean must use only UInt64 and Bool operations (`toNat`, `Nat`, `BitVec`, etc. are forbidden; see policy.json target_forbidden_identifiers). Proof.lean may use them freely.**
+   Copy `before/` to `lean/targets/spend/after_fx3/`, fix `Target.lean`, and write `theorem patch_sound : SpendSpec.Correct Target.authorize := by ...` in `Proof.lean`.
+   - Forbidden: `sorry`, `admit`, `axiom`, `native_decide`, `bv_decide`, `implemented_by`, `@[extern]`, `unsafe`, `opaque`, `set_option`, changes to spec/lakefile/regressions, and hardcoded attack inputs. The judge detects and rejects these.
+3. Run: `cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean --subject spend lean after_fx3`
+4. Revise honestly until accept. If blocked, document what is missing and stop.
 
-## 記録
-`docs/fixer/FX3-<あなたの名前>.md` に次を書く:
-- 最終の verdict、理由コード、攻撃・回帰の件数
-- 試行の回数と、各回で何に reject されたか、どう直したか(Lean のエラー文を含む)
-- 最終の Target.lean と Proof.lean の全文
-- 掛かった時間
-- 外部通信・インストール・commit・push はしない。答えを探しに行かない(ネット・他のディレクトリを見ない)。
+## Record
+Write the following in `docs/fixer/FX3-<your-name>.md`:
+- Final verdict, reason codes, attack/regression counts
+- Number of attempts, each rejection and revision (include Lean diagnostics)
+- Complete final Target.lean and Proof.lean
+- Time spent
+- No external networking, installations, commits or pushes. Do not search for answers online or in other directories.
 EOF
 python3 - "$WORK/fixer-instruction.md" "$VERSION" <<'PY'
 from pathlib import Path
@@ -91,8 +91,8 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   if [ -f "$WORK/live-fix-report.json" ]; then
     {
       echo ""
-      echo "## 前回の判定結果（前の試行へのフィードバック）"
-      echo "前の候補は reject でした。作業コピー直下の \`live-fix-report.json\` に前回の判定 JSON があります。理由を読んで直してください。"
+      echo "## Previous judgement (feedback for the next attempt)"
+      echo "The previous candidate was rejected. Read the judgement JSON in \`live-fix-report.json\` at the work-copy root and fix the reported reasons."
     } >> "$BRIEF"
   fi
   FIXER="${FIXSEAL_FIXER_CMD:-codex exec -s workspace-write \"\$(cat fixer-brief.md)\"}"

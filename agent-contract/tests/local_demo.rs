@@ -99,7 +99,7 @@ async fn local_fix_proof_demo() -> Result<(), Error> {
     std::fs::create_dir_all(&out_dir)?;
     let mut bundles = Vec::new();
     for (version, verdict, reasons) in versions {
-        println!("Judging {subject}/{version} (仮想空間での検証)");
+        println!("Judging {subject}/{version}");
         let output = judge_command(&[
             "bundle",
             "--lean",
@@ -217,7 +217,9 @@ async fn local_fix_proof_demo() -> Result<(), Error> {
         println!("{version}: submit_fix_proof → get_fix_proof → verify");
         print!("{}", String::from_utf8_lossy(&verified.stdout));
     }
-    println!("\n仮想空間での検証 — {subject} / local sandbox / mock attestation");
+    println!(
+        "\nsimulated environment, synthetic data — {subject} / local sandbox / mock attestation"
+    );
     println!(
         "| version | verdict | attacks working | regressions passed | reasons | chain / verify | result SHA-256 |"
     );
@@ -276,9 +278,7 @@ async fn local_guard_demo() -> Result<(), Error> {
         );
         bundles.insert(version, evidence);
     }
-    println!(
-        "Guard: 仮想空間での検証 / simulated environment, synthetic data; spend policies exported and judged"
-    );
+    println!("Guard: simulated environment, synthetic data; spend policies exported and judged");
     let sandbox = Sandbox::start_sandbox_with_config(SandboxConfig {
         additional_config: Some(json!({"telemetry":{"endpoints":[]}, "network":{"boot_nodes":"", "skip_sync_wait":true}})),
         ..Default::default()

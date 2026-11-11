@@ -35,7 +35,7 @@ export NO_PROXY="127.0.0.1,localhost"
 export no_proxy="$NO_PROXY"
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
-echo 'Fixseal: 仮想空間での検証 (local NEAR sandbox; no account or external network)'
+echo 'Fixseal: simulated environment, synthetic data (local NEAR sandbox; no account or external network)'
 if [ -z "${NEAR_SANDBOX_BIN_PATH:-}" ]; then
     shopt -s nullglob
     FIXSEAL_SANDBOX_CANDIDATES=(

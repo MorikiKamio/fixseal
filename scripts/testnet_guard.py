@@ -206,7 +206,7 @@ class Testnet:
         (self.output / "guard-state.json").write_text(encoded(after))
         with self.evidence.open("a") as out:
             out.write("\nRun status: complete; final guard state and recipient balance checks passed.\n")
-        print("仮想空間での検証 / simulated environment, synthetic data: all guard steps passed")
+        print("simulated environment, synthetic data: all guard steps passed")
 
 
 def judge(args):

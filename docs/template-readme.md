@@ -4,9 +4,9 @@ These historical upstream instructions are not required for Fixseal's offline ev
 
 ## Original reference
 
-# 元テンプレートの説明
+# Original template guide
 
-Fixseal のオフライン検証には不要な、上流テンプレートの参考手順です。外部通信・アカウント作成を含むため、許可のない環境では実行しません。
+Upstream reference instructions are unnecessary for offline Fixseal checks. They include external networking and account creation; do not execute without permission.
 
 > [!WARNING]  
 > The Shade Agent Framework has not yet undergone a formal audit.

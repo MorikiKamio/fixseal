@@ -21,15 +21,15 @@ The proof leak scanner covers text of every extension and encountered symlinks, 
 
 T010 spend-4 also exports supported elaborated UInt64/Bool expressions through TargetAudit. Unsupported fragments fail closed. The judge shares a Rust interpreter with the spending contract and compares it with Lean on a fixed 1,028-input set. The exporter/interpreter are trusted, outside the proof; comparison is a check, not a proof. [Expression and guard guide](../docs/guard.md).
 
-## Japanese reference
+## Detailed reference
 
-# Lean の対象・spec・証明
+# Lean targets, spec and proofs
 
-T002 と同じダミーのパス・トラバーサルを Lean 自身で実装し、その関数をテスト・証明の両方の対象にする。結果はすべて**仮想空間での検証**。[ASSUMPTIONS.md](../ASSUMPTIONS.md) に保証の範囲と信頼の前提を記載した。
+The T002 dummy path traversal is implemented in Lean, with the same function tested and proved. All results describe a **simulated environment, synthetic data**. [ASSUMPTIONS.md](../ASSUMPTIONS.md) defines scope and trust.
 
-## 3コマンドで検査
+## Check in 3 commands
 
-リポジトリ直下で、Lean 4.34.1 と Rust の既存 toolchain / 依存キャッシュを使う。外部取得は不要。Rust の cargo / rustc を利用環境の PATH に置く。
+Run at the repository root with installed Lean 4.34.1, Rust toolchains and dependency caches. No downloads are needed. Put cargo / rustc on PATH.
 
 ```sh
 export FIXSEAL_LEAN_BIN="${FIXSEAL_LEAN_BIN:-$HOME/.elan/toolchains/leanprover--lean4---v4.34.1/bin}"
@@ -38,41 +38,41 @@ export PATH="$FIXSEAL_LEAN_BIN:$PATH"
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean lean after_honest
 ```
 
-`lake build` は正直な修正版と証明、監査、実行ファイルをビルドする。最後の judge コマンドが spec 固定値・禁止構文・クリーンビルド・公理依存・攻撃・元の回帰テストを合わせて検査し、JSON で accept を出す。Lean 単体は `sorry` を警告だけで受け入れるので、**`lake build` 成功だけで受理とはしない**。
+`lake build` builds the honest implementation, proof, audit and executable. The final judge command checks the spec hash, forbidden syntax, clean build, axioms, attacks and original regressions, then emits accept JSON. Lean alone accepts `sorry` with a warning: **a successful `lake build` is insufficient for acceptance**.
 
-全テストは次で実行できる。
+Run all tests with:
 
 ```sh
 cargo test --manifest-path judge/Cargo.toml --locked --offline
 ```
 
-## ファイルと修正範囲
+## Files and editing scope
 
-| ファイル | 役割 |
+| File | Role |
 | --- | --- |
-| `Spec.lean` | 人間がレビューする仕様。要素リスト・字句的正規化・許可ルート内の定義・全入力の性質。修正者の編集は禁止。 |
-| `after_honest/Target.lean` | 正規化後にルート内かを確認して返す関数。 |
-| `after_honest/Proof.lean` | `Spec.Correct Target.join`（包含性 + 通常の相対入力の受理）の証明。`sorry`・追加公理なし。 |
-| `before/Target.lean` | ルート外への移動を許す修正前。証明なし。 |
-| `after_hardcode/Target.lean` | 公開攻撃の生文字列だけを拒否。変種を通す。証明なし。 |
-| `after_cheat/` | 正直な実装と `sorry` を使った不正な証明。ビルドできても judge は拒否。 |
-| `after_weaken_test/` | 正直な実装・証明と弱めた回帰テスト。元の回帰テストを使い、テスト改変を拒否。 |
-| `after_reject_all/` | 常に none を返す実装。回帰で拒否。添付した honest の証明も新 spec に対して失敗。 |
-| `SpecTests.lean` | 旧 spec で全拒否が通り、新 spec では通らないことを確認する補助例。`lake env lean SpecTests.lean` で検査。 |
-| `Path.lean` / `Main.lean` | 一度の URL デコード・要素分割・JSON Lines 入出力。証明範囲外。 |
-| `Audit.lean` | 実行する関数に対して証明の型を固定し、公理依存を出力。 |
-| `corpus.json` / 各版の `tests/regression.json` | T002 と同じダミーの攻撃・回帰入力。judge は baseline の回帰入力を使う。 |
-| `lakefile.toml` / `lean-toolchain` | Std/Init と Lean 標準の JSON のみ。外部依存・Mathlib なし。 |
+| `Spec.lean` | Specification for human review: component lists, lexical normalization, root containment and universal properties. Fixers must not edit it. |
+| `after_honest/Target.lean` | Normalizes, checks root containment and returns the path. |
+| `after_honest/Proof.lean` | Proof of `Spec.Correct Target.join` (containment + ordinary relative input acceptance), without `sorry` or extra axioms. |
+| `before/Target.lean` | Vulnerable implementation allowing escape from the root; no proof. |
+| `after_hardcode/Target.lean` | Rejects only public attack strings; variants pass. No proof. |
+| `after_cheat/` | Honest implementation with a `sorry` proof: builds, but the judge rejects it. |
+| `after_weaken_test/` | Honest implementation/proof with weakened regressions; the judge uses originals and rejects test changes. |
+| `after_reject_all/` | Always returns none; fails regressions. Its copied honest proof also fails the new spec. |
+| `SpecTests.lean` | Examples showing reject-all passes the old spec but fails the new one; run `lake env lean SpecTests.lean`. |
+| `Path.lean` / `Main.lean` | Single URL decoding, component splitting and JSON Lines I/O; outside the proof. |
+| `Audit.lean` | Fixes the theorem type to the executed function and prints axiom dependencies. |
+| `corpus.json` / each version's `tests/regression.json` | T002 dummy attacks/regressions; the judge uses baseline regressions. |
+| `lakefile.toml` / `lean-toolchain` | Std/Init and Lean standard JSON only; no external packages or Mathlib. |
 
-デフォルトの Lake プロジェクトは `after_honest` の2ファイルを読む。各版の検査は最後の引数を `before`、`after_hardcode`、`after_cheat` に変更する。版名で実装を選ぶのではなく、指定されたファイルのソースをコンパイルする。Spec・実行補助・ビルド設定は共有の固定入力として、各版の入力ハッシュにも含める。各版内に同名の Spec を置いて上書きしようとしても検査に渡り、拒否される。
+The default Lake project reads the 2 after_honest files. Change the final judge argument to `before`, `after_hardcode` or `after_cheat` to test others. The judge compiles the named source rather than selecting an implementation by name. Shared spec/runtime/build inputs are fixed and included in each input hash; shadow Spec files in candidates are rejected.
 
-judge は `~/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lake`（別の配置では `FIXSEAL_LEAN_BIN` 内の実体）を直接使い、elan の自動ダウンロードを避ける。候補が提供したビルド設定や生成物を実行しない。証明ファイルの import と定理の型を固定し、固定ラッパー・禁止トークン・公理監査を併用する。一般の Lean 修正を受け入れる仕組みではない。
+The judge directly uses `~/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lake` (or the real binary in `FIXSEAL_LEAN_BIN`) to avoid elan downloads. Candidate build settings/artifacts are unused. Fixed imports/types, wrappers, forbidden tokens and axiom checks restrict the accepted source interface.
 
-Spec の参照 SHA-256 は `f68c72b5bf0028485f7e6b79f1d6ba3befb69273efed35cb6f395f9b9e5f6c8b`（`judge/src/lean.rs` に固定）。これはこの実装の基準値。運用時には人間が内容をレビューして承認し、judge バイナリとともに固定する。修正者による更新は許さない。
+Spec reference SHA-256 is `f68c72b5bf0028485f7e6b79f1d6ba3befb69273efed35cb6f395f9b9e5f6c8b`, pinned in `judge/src/lean.rs`. Before operation, a human must review and approve the content and pin it with the judge binary. Fixers cannot update it.
 
-## 攻撃コーパスを直接実行
+## Run the attack corpus directly
 
-ビルド後の `lean/.lake/build/bin/pathcheck` は、stdin の各行に JSON の文字列を受け取り、返却パスの JSON 文字列または `null` を1行ずつ出す。実ファイルは開かない。次は T002 の攻撃11件を正直な実装へ直接流す例。
+After building, `lean/.lake/build/bin/pathcheck` reads JSON strings from stdin and emits a JSON path string or `null` per 1 input line. No real files are opened. This sends the 11 T002 attacks directly to the honest implementation:
 
 ```sh
 python3 - <<'PY' | lean/.lake/build/bin/pathcheck
@@ -84,42 +84,42 @@ for attack in corpus['public'] + corpus['variants']:
 PY
 ```
 
-すべて `null` になる。judge は同じ形式で各版を実行し、既存の Rust による字句的なパス判定で攻撃成功を数える。証明を Rust モデルに置き換えてはいない。
+All outputs are `null`. The judge runs every version in this format and counts escapes using the existing Rust lexical path check. The proof is not replaced by a Rust model.
 
-## 理由コードと期待値
+## Reasons and expectations
 
-以下は合成データによる**仮想空間での検証**。全版で修正前の攻撃成功11/11。元の回帰は reject_all が2/11、他は11/11成功。
+**simulated environment, synthetic data**: baseline attacks succeed 11/11 for every version. Original regressions pass 2/11 for reject_all and 11/11 for the others.
 
-| 版 | 判定 | 候補の攻撃成功 | 理由 |
+| Version | Verdict | Candidate attacks working | Reasons |
 | --- | --- | --- | --- |
 | before | reject | 11/11 | ATTACK_STILL_WORKS |
-| after_honest | accept | 0/11 | なし。カーネル検査成功。 |
+| after_honest | accept | 0/11 | None; kernel check passed. |
 | after_hardcode | reject | 10/11 | POLICY_VIOLATION, ATTACK_STILL_WORKS |
 | after_cheat | reject | 0/11 | PROOF_CHEATED |
 | after_weaken_test | reject | 0/11 | POLICY_VIOLATION |
-| after_reject_all | reject | 0/11 | REGRESSION_FAILED（別途のカーネル検査は PROOF_REJECTED） |
+| after_reject_all | reject | 0/11 | REGRESSION_FAILED (separate kernel check: PROOF_REJECTED) |
 
-T004 で `Correct = Contained ∧ AcceptsRelative` に強化した。`AcceptsRelative` は root と入力部品が空文字・`.`・`..` を含まない通常の要素列で、相対入力なら正規化した結合結果を必ず返す性質。空リストも含むため全拒否は通らない。空要素・`.`・`..` や絶対パスの受理可能性の証明は範囲外。回帰も引き続き使用する。
+T004 strengthens `Correct = Contained ∧ AcceptsRelative`. For relative inputs whose root and components exclude empty strings, `.` and `..`, `AcceptsRelative` requires the normalized concatenation. Empty lists are included, so reject-all fails. Acceptance of absolute paths or empty/`.`/`..` components is outside this property; regressions still run.
 
-各 Lean ビルド・公理監査・対象実行は既定120秒の wall-clock 制限を持つ。`FIXSEAL_LEAN_TIMEOUT_SECS` に正整数の秒数を指定でき、超過は `PROOF_TIMEOUT` として reject する。現行 judge は `0.1.0/lean-path-7` と `0.1.0/lean-spend-4`。
+Each Lean build, axiom check and execution has a default 120-second wall-clock limit. Positive integer `FIXSEAL_LEAN_TIMEOUT_SECS` overrides it; exceeding it rejects as `PROOF_TIMEOUT`. Current judges: `0.1.0/lean-path-7` and `0.1.0/lean-spend-4`.
 
-行動検査を通った候補に証明ファイルがなければ `PROOF_MISSING`、許可構文でも型検査・ビルドに失敗すれば `PROOF_REJECTED`。`sorry`、独自公理、禁止タクティク、spec や実行補助の改変、未許可の Lean 構文は `PROOF_CHEATED`。既存の違反がある候補に証明なしの理由を重ねず、T002 の理由を維持する。
+For candidates passing behavior checks, absent proof gives `PROOF_MISSING`; allowed syntax with a failed build/type check gives `PROOF_REJECTED`. `sorry`, extra axioms, forbidden tactics, changed spec/helpers or unsupported Lean syntax gives `PROOF_CHEATED`. Existing T002 violations retain their reasons without adding a missing-proof reason.
 
-## 参考
+## References
 
-設計上の参考: [NyxFoundation/nyxis](https://github.com/NyxFoundation/nyxis)（MIT）。人間が仕様を承認し、AI が実装・証明を書き、Lean カーネルが検査する役割分担と、信頼の前提を明記する作法を参考にした。設計 v0.3 で挙げられた [nyx-ssz](https://github.com/NyxFoundation/nyx-ssz)（MIT）の未証明範囲を明記する方針にも従う。ライセンス表記はタスク・設計資料に基づく。外部通信禁止のため本作業で取得・閲覧・コード転用はしていない。Rust と Lean の対応証明（Aeneas 等）は将来の拡張であり、今回の実装には含めない。
+Design credit: [NyxFoundation/nyxis](https://github.com/NyxFoundation/nyxis) (MIT), for separating human specification approval, AI implementation/proof and Lean kernel checking, with explicit trust assumptions. The design v0.3 reference [nyx-ssz](https://github.com/NyxFoundation/nyx-ssz) (MIT) also motivates stating unproved scope. License labels follow supplied task/design materials; network restrictions prevented fetching, browsing or reusing code. Rust/Lean correspondence (e.g. Aeneas) remains future work.
 
-## 修正者向けの構文（T006）
+## Fixer syntax (T006)
 
-宣言ラッパー・import・定理名と型は固定。一般的な core タクティクと core の補題名、任意の ASCII 仮説名、算術・比較・論理記法を使用できる。`rw` / `induction` / `omega` / `by_cases` / `decide` 等も利用可能。追加宣言、環境変更、メタプログラム、IO、unsafe、`sorry` / `native_decide` / `bv_decide` 等は禁止トークン検査で実行前に拒否する。詳細は [AGENTS.md](../AGENTS.md) と judge の `expression_allowed` / lexer。固定入力のバイト照合・Spec ハッシュ・固定型・カーネルと公理監査を維持する。
+Wrappers, imports, theorem name and type are fixed. General core tactics/lemmas, ASCII hypothesis names and arithmetic/comparison/logical notation are allowed, including `rw` / `induction` / `omega` / `by_cases` / `decide`. Extra declarations, environment changes, metaprograms, IO, unsafe, `sorry` / `native_decide` / `bv_decide` are rejected before execution. See [AGENTS.md](../AGENTS.md) and judge `expression_allowed` / lexer. Trusted bytes, Spec hash, fixed type, kernel and axiom checks remain.
 
-path の Target リストは従来どおり文字列リテラルと括弧のみ（空リスト可）。要素内の式・入れ子リストは拒否する。文字列は JSON 互換エスケープ、コメントは入れ子を認識する。直書き検査は補助的なポリシーであり、一般の難読化検出ではない。
+Path Target lists allow only literal strings and parentheses, including empty lists. Expressions inside elements and nested lists are rejected. Strings use JSON-compatible escapes; nested comments are recognized. Literal checks supplement policy and do not detect arbitrary obfuscation.
 
-## 支出上限の桁あふれ（spend）
+## Spending limit overflow (spend)
 
-spend の Target は UInt64 と Bool の演算に限定し、`target_forbidden_identifiers` で `toNat` 等の変換・別の数値表現・スコープや別名／構文定義（名前空間・ドット記法を含む）を、追加検査で内部表現の分解を `POLICY_VIOLATION` として拒否するが、Proof では `toNat` を自由に使える。
+Spend Target allows only UInt64 and Bool operations. `target_forbidden_identifiers` rejects `toNat`, other numeric representations and scope/alias/syntax definitions (including namespace/dot forms); representation unpacking also gives `POLICY_VIOLATION`. Proof may freely use `toNat`.
 
-独立した Lake プロジェクトは `targets/spend/`。Mathlib・外部パッケージなし。`SpendSpec.lean` は `UInt64 → UInt64 → UInt64 → Bool` の承認関数について数学的な和が上限内であることと true の同値だけを定義し、証明用の補題を持たない。固定ハッシュは `e3933e5161e3cbd034aa95cdf11659ffec4407c9697dbf405869d5a3fee5bebe`。内容とハッシュの人間レビュー履歴は未作成。
+`targets/spend/` is an independent Lake project without Mathlib/external packages. `SpendSpec.lean` defines only equivalence between true authorization and a mathematical sum within the limit for `UInt64 → UInt64 → UInt64 → Bool`; it contains no proof lemmas. Fixed hash: `e3933e5161e3cbd034aa95cdf11659ffec4407c9697dbf405869d5a3fee5bebe`. Human content/hash approval history has not been created.
 
 ```sh
 (cd lean/targets/spend && lake build)
@@ -127,8 +127,8 @@ cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean --subjec
 python3 scripts/check-spend-proof-leak.py --self-test
 ```
 
-入力は JSON 文字列内の空白区切り `limit spent amount`（10進 UInt64 3個）、出力は JSON 文字列 `"true"` / `"false"`。範囲外や形式不正は入力検査で拒否する。judge は数学的な和を u128 で判定してコーパスと回帰の妥当性も確認する。実行する関数は定理で指定するものと同じ `Target.authorize`。
+Input is a JSON string containing 3 base-10 UInt64 values `limit spent amount`, separated by spaces; output is the JSON string `"true"` / `"false"`. Malformed/out-of-range values are rejected. The judge checks corpus/regression validity with u128 arithmetic. Executed `Target.authorize` is the function named by the theorem.
 
-合成データによる**仮想空間での検証**: 攻撃12件、回帰16件（許可9・拒否7）。before は攻撃12/12成功。honest は0/12・回帰16/16でaccept、hardcode は11/12でポリシー違反も検出、cheat は0/12・回帰16/16でも不正証明により PROOF_CHEATED のみで拒否、reject_all は回帰7/16、saturate は攻撃3/12でreject。飽和加算は最大上限で数学的な和の超過を拒否できない。
+**simulated environment, synthetic data**: 12 attacks, 16 regressions (9 allow, 7 refuse). Baseline attacks succeed 12/12. Honest: attacks 0/12, regressions 16/16, accept. Hardcode: 11/12 attacks and a policy violation. Cheat: attacks 0/12, regressions 16/16, rejected with PROOF_CHEATED alone. Reject_all: regressions 7/16. Saturate: attacks 3/12, reject; saturation misses mathematical overflow at the maximum limit.
 
-spend の参照証明本文と固有の補題ヒントは `after_honest` に置く。漏れ検査は他の版・ソース・文書を走査し、コピーを挿入する自己テストも行う。生成物と実験後の記録 `examples/fixers/`・`docs/fixer/` は走査外。独立修正担当に渡す際は、これらの記録とすべての参照 `after_honest` を必ず除く。[FX3記録と再判定手順](../examples/fixers/README.md) を参照。
+Spend reference proofs and proof-specific hints belong in `after_honest`. The scanner checks other versions, source and docs, with self-tests inserting copied fragments. Generated artifacts and post-experiment `examples/fixers/` / `docs/fixer/` records are excluded. Remove those records and every reference `after_honest` directory from independent fixer copies. See [FX3 records and replay](../examples/fixers/README.md).

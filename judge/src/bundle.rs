@@ -74,7 +74,7 @@ fn check(lines: &mut Vec<String>, label: &str, matches: bool) -> bool {
 
 // The embedded record is an offline readback, not an authenticated RPC response.
 pub fn verify(evidence: &Evidence) -> (bool, Vec<String>) {
-    let mut lines = vec!["仮想空間での検証 / offline bundle verification".into()];
+    let mut lines = vec!["simulated environment / offline bundle verification".into()];
     let mut valid = check(
         &mut lines,
         "bundle format",

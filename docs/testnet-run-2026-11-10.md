@@ -1,6 +1,6 @@
 # NEAR testnet guard run — 2026-11-10
 
-**Simulated environment, synthetic data** (仮想空間での検証): disposable testnet accounts, local/mock attestation (`requires_tee: false`), no real TEE and no real funds. This shows that the guard's rules hold on a public NEAR network; it is not a security certification.
+**Simulated environment, synthetic data**: disposable testnet accounts, local/mock attestation (`requires_tee: false`), no real TEE and no real funds. This shows that the guard's rules hold on a public NEAR network; it is not a security certification.
 
 | Item | Value |
 | --- | --- |

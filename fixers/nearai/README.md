@@ -1,110 +1,71 @@
 # fixers/nearai
 
-NEAR AI Cloud のモデルを Fixseal の修正担当として走らせる小さな道具。
-「NEAR AI Cloud のモデルが修正と Lean の証明を書き、Fixseal が判定した」
-記録を足すためのもの。Python 3 標準ライブラリのみ。実際の実行（API キー
-と別途の外部通信許可が要る）は運用者が行う。開発コピー・公開exportを
-そのままworkdirにしない。参照解答を含むコピーは実行前に拒否する。
+A small Python 3 standard-library tool that runs a NEAR AI Cloud model as a Fixseal repair agent and records its patch, Lean proof and judge result. The operator runs the API with a key and separate network permission. Never use the development copy or public export directly as workdir: copies containing reference answers are rejected before execution.
 
-## 使い方（3コマンド）
+## Usage (3 commands)
 
 ```sh
-# 1. 開発コピーから答えを抜いたコピーを作る（漏れ検査つき）
+# 1. Create an answer-withheld copy, including a proof leak check
 fixers/nearai/make_blind_copy.sh /path/to/blind-copy
 
-# 2. API キーを環境変数に入れて実行（リポジトリ直下から）
+# 2. Set the API key and run from the repository root
 export NEARAI_API_KEY=sk-...
 python3 fixers/nearai/run_fixer.py \
     --workdir /path/to/blind-copy \
-    --instruction docs/tasks/<修正担当への指示ファイル>.md \
+    --instruction docs/tasks/<fixer-instruction-file>.md \
     --subject spend --version after_nearai \
     --out-dir demo-artifacts/nearai
 
-# 3. 結果を見る
-cat demo-artifacts/nearai/judgements.jsonl   # 各回の判定
-cat demo-artifacts/nearai/record.md          # docs/fixer/ 用の記録
+# 3. Inspect results
+cat demo-artifacts/nearai/judgements.jsonl   # Per-attempt judgements
+cat demo-artifacts/nearai/record.md          # Record for docs/fixer/
 ```
 
-- `--instruction`: モデルに渡す指示文のパス。`docs/tasks/` の FX3 と同じ
-  内容のファイルを運用者が用意して渡す。`--version` は指示文にある候補名
-  と一致させること（モデルがそのディレクトリをコピーして作る）。
-- 前提: コピー内で judge が動くこと。Rust/Cargo、Lean 4.34.1、依存
-  キャッシュ、必要なら `FIXSEAL_LEAN_BIN` 環境変数。判定コマンドは
-  `cargo run --manifest-path judge/Cargo.toml --locked --offline --`
-  `--lean [--subject spend] lean VERSION`（コピー内で実行）。
-- モデルが使える道具は `bash` と `done` のみ。`bash` は作業ディレクトリ
-  内でのみ実行され、ネットワークを使うコマンド（curl、wget、git clone、
-  pip、npm、lake update など）は実行前に拒否される。作業ディレクトリ外の
-  パス・ホーム相対パス・パス内の変数展開も拒否する。1 コマンドの時間制限
-  （既定 600 秒）と出力の切り詰めあり。
-- `done` が呼ばれるたびに judge を 1 回実行する。accept でなければ
-  verdict・理由・抽出した診断をモデルに返して続ける。bashでacceptを
-  見た後、またはdocs/fixer/への記録書き込み後は、次のターンにdoneを
-  呼ぶよう明示して促す（出力/コマンドに基づく補助検出）。道具を呼ばずに
-  止まったら 1 行で促す。`--max-turns` / `--max-seconds` /
-  `--max-tokens`（累計）で停止。
-- done未呼び出しのままターン上限に達した場合、道具がjudgeを1回だけ
-  実行して`final_judge`として記録する。`done_called`と`attempts`
-  （done経由のみ）は別に記録し、max_turnsはacceptでもそのまま残す。
-- accept になったら bundle 出力と `verify` まで自動で行い
-  （`--no-bundle-verify` で省略可）、VERIFIED かを記録する。
-- `NEARAI_API_KEY` はログ・記録・例外文・子プロセスの環境から除外される。
+- `--instruction`: operator-provided task text matching FX3 in `docs/tasks/`. Match `--version` to the candidate directory named in the instruction; the model creates that copy.
+- Prerequisites: a working judge in the copy, Rust/Cargo, Lean 4.34.1, dependency caches and, if needed, `FIXSEAL_LEAN_BIN`. Judge command inside the copy: `cargo run --manifest-path judge/Cargo.toml --locked --offline --` followed by `--lean [--subject spend] lean VERSION`.
+- Model tools are only `bash` and `done`. Bash runs inside workdir; network commands (curl, wget, git clone, pip, npm, lake update, etc.) reject before execution. Outside paths, home-relative paths and variable expansion in paths also reject. Commands have a default 600-second timeout per 1 command and truncated output.
+- Each `done` call runs the judge 1 time. Rejection returns verdict, reasons and extracted diagnostics for another attempt. After detecting accept via bash or a docs/fixer/ record write, the next turn explicitly requests `done`; this is supplemental output/command detection. A model stopping without tools receives a 1-line reminder. `--max-turns` / `--max-seconds` / cumulative `--max-tokens` stop execution.
+- If the turn cap arrives without done, the tool runs the judge 1 time and records `final_judge`. `done_called` and done-only `attempts` remain separate; max_turns remains the stop reason even on accept.
+- On accept, bundle export and `verify` run automatically (disable with `--no-bundle-verify`) and record whether replay is VERIFIED.
+- `NEARAI_API_KEY` is excluded from logs, records, exception text and subprocess environments.
 
-## 主な引数
+## Main options
 
-| 引数 | 既定 | 説明 |
+| Option | Default | Meaning |
 | --- | --- | --- |
-| `--base-url` | `https://cloud-api.near.ai/v1`（`NEARAI_BASE_URL`） | docs.near.ai で確認した gateway |
-| `--model` | `zai-org/GLM-5.1-FP8`（`NEARAI_MODEL`） | quickstart の例。変更可 |
-| `--subject` | `spend` | `path` か `spend` |
-| `--max-turns` | 40 | API 呼び出し回数の上限 |
-| `--max-seconds` | 14400 | 全体の壁時計上限 |
-| `--max-tokens` | 4000000 | 累計 usage の上限 |
-| `--command-timeout` | 600 | bash 1 コマンドの秒数 |
-| `--judge-timeout` | 1200 | 判定 1 回の秒数 |
+| `--base-url` | `https://cloud-api.near.ai/v1` (`NEARAI_BASE_URL`) | Gateway checked against docs.near.ai |
+| `--model` | `zai-org/GLM-5.1-FP8` (`NEARAI_MODEL`) | Configurable quickstart example |
+| `--subject` | `spend` | `path` or `spend` |
+| `--max-turns` | 40 | Maximum API calls |
+| `--max-seconds` | 14400 | Overall wall-clock limit |
+| `--max-tokens` | 4000000 | Cumulative usage limit |
+| `--command-timeout` | 600 | Seconds per 1 bash command |
+| `--judge-timeout` | 1200 | Seconds per 1 judgement |
 
-## 費用の目安の出し方
+## Cost estimates
 
-実行開始時に、同じbase URLの`/models`（既定は`/v1/models`）を取得し、
-選択モデルのpricing・取得時刻・出典を保存する。usageを累計し、終了時に
-`cost`としてUSD概算と計算に使った単価/usageをJSON Linesと記録へ書く。
-API未実行のNX1履歴には単価スナップショットがなく、遡って費用を作らない。
+At startup, fetch `/models` (default `/v1/models`) from the same base URL and retain selected-model pricing, retrieval time and source. Accumulate usage; at completion, write USD `cost` estimates and the pricing/usage used into JSON Lines and the record. NX1 historical runs lack pricing snapshots; do not invent retrospective costs.
 
-対応するpricing形式:
+Supported pricing formats:
 
-- `prompt` / `completion`（USD/token）、任意の`input_cache_read`。
-- `input` / `output`と明示した`unit`（`usd_per_token` または
-  `usd_per_million_tokens`）、任意の`cache_read`。
+- `prompt` / `completion` (USD/token), optional `input_cache_read`.
+- `input` / `output` with explicit `unit` (`usd_per_token` or `usd_per_million_tokens`), optional `cache_read`.
 
-`prompt_tokens_details.cached_tokens`が全応答にあり、キャッシュ単価も
-ある場合だけ割引する。内訳がなければ通常入力単価で`upper_bound`
-（キャッシュ割引前の上限）とする。料金は請求実績ではない。単価取得失敗、
-未対応の形式/単位、usage欠落は`unavailable`として記録し、0ドルと扱わない。
-今回の実装テストはAPIを呼ばず、実サービスのpricing形式は未確認。
+Apply cache discounts only when every response contains `prompt_tokens_details.cached_tokens` and a cache rate exists. Otherwise use the normal input rate as `upper_bound`, before cache discounts. Estimates are not invoices. Pricing failures, unsupported formats/units or missing usage produce `unavailable`, not 0 dollars. Implementation tests call no API; live-service pricing formats remain unconfirmed.
 
-## 限界
+## Limits
 
-- `bash` の拒否リストは協力的なエージェント向けのガードであり、完全な
-  サンドボックスではない。難読化されたネットワークアクセスやシェル
-  展開による脱出は防げない場合がある。実行環境の選択は運用者の責任。
-- 判定 JSON に Lean の診断は含まれないため、記録のエラー要約は judge
-  の stderr に現れた `error` 行に限る。必要ならモデル自身が直接
-  コンパイルして診断を読む（FX3 と同じやり方）。
-- `record.md` は自動生成。項目は FX3 の記録と同じだが「修正内容」は
-  モデルの自己報告のみで、公開前に運用者の確認が必要。
-- 非ストリーミングの chat completions のみ実装。`reasoning_content`
-  は記録に使わない。Responses API・モデル個別エンドポイントは未対応。
-- 時間/トークン/APIエラーによる停止は自動再判定しない。ターン上限時の
-  `final_judge`と`done_called`を区別し、`stop_reason`も確認すること。
-- 元のNX1実行後に、bundleのパス組み立てとverifyログのclose順も修正。
-  verify失敗は記録し、終了コードも失敗とする。
+- The bash denylist assists cooperative agents; it is not a complete sandbox. Obfuscated networking or shell expansion may escape it. The operator must choose the execution environment.
+- Judge JSON lacks Lean diagnostics; recorded errors are limited to stderr `error` lines. The model can compile locally to inspect diagnostics, as in FX3.
+- `record.md` is generated with FX3-style fields. Repair explanations are model self-reports requiring operator review before publication.
+- Only non-streaming chat completions are implemented. `reasoning_content` is unused in records; Responses API and model-specific endpoints are unsupported.
+- Time/token/API-error stops do not trigger automatic rejudging. Distinguish turn-cap `final_judge`, `done_called` and `stop_reason`.
+- After NX1, bundle-path construction and verify-log close ordering were fixed. Verify failure is recorded and returns a failure exit code.
 
-## テスト
+## Tests
 
 ```sh
 python3 fixers/nearai/test_run_fixer.py
 ```
 
-標準ライブラリのin-process偽クライアント・HTTPレスポンスの差し替えを使う。
-API通信・localhost bindは行わない。judge fallback、催促、費用の割引/上限、
-キー非漏洩、bundle/verify記録の一連の流れを確認する。
+Tests use in-process fake clients and replaced HTTP responses from the standard library, without API calls or localhost bind. They cover judge fallback, reminders, discounted/upper-bound costs, key redaction and bundle/verify records. Results describe a **simulated environment, synthetic data**.

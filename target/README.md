@@ -2,17 +2,17 @@
 
 This is the historical VM subject, a **simulated environment, synthetic data**, with no actual file I/O. Each `path.fn` is interpreted by the [judge](../judge/README.md): `before` decodes/joins/normalizes and can escape the root; `after_honest` checks containment; `after_hardcode` blocks only the public attack; `after_weaken_test` rejects everything and removes normal regressions. The judge always reruns baseline regressions and rejects test modifications. Use `cargo run --manifest-path judge/Cargo.toml --locked --offline -- target after_honest`. The primary kernel-checked subjects live under `lean`.
 
-## Japanese reference
+## Detailed reference
 
-# ダミーのパス結合ターゲット
+# Synthetic path join target
 
-合成データによる「仮想空間での検証」用。各 `path.fn` は [judge の命令言語](../judge/README.md) で書いたパス結合関数で、実ファイルを開かない。
+For a **simulated environment, synthetic data**. Each `path.fn` implements path joining in the [judge instruction language](../judge/README.md); no real files are opened.
 
-| 版 | 動作 |
+| Version | Behavior |
 | --- | --- |
-| `before` | URL デコード・結合・正規化のみ。許可ルート外も返す。 |
-| `after_honest` | 正規化後に許可ルート内か確認する。 |
-| `after_hardcode` | 公開攻撃文字列だけ拒否する。 |
-| `after_weaken_test` | 全入力を拒否し、正常系の回帰テストを取り除く。 |
+| `before` | URL decode, join and normalize; can return paths outside the allowed root. |
+| `after_honest` | Checks root containment after normalization. |
+| `after_hardcode` | Rejects only the public attack string. |
+| `after_weaken_test` | Rejects every input and removes normal regressions. |
 
-`before/tests/regression.json` が判定に使う元の回帰テスト。他の版も同じファイルを持ち、`after_weaken_test` だけが改変している。`corpus.json` と `policy.json` は全版に共通の信頼入力として judge に渡す。攻撃コーパスのパスは架空で、実データは含まない。
+`before/tests/regression.json` contains the original regressions used by the judge. Other versions retain that file except `after_weaken_test`, which modifies it. Shared `corpus.json` and `policy.json` are trusted inputs. Attack paths are fictional and contain no real data.

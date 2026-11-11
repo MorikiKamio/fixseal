@@ -4,56 +4,56 @@ The operator's [FIX5 host record](demo-output-host-fix5.txt) completed path-7/sp
 
 Restricted agent environments may lack localhost bind permission and fail with `Operation not permitted`; this is not a completed chain test. Prepared offline Lean/judge and contract mock tests need no socket. Chain tests require preinstalled near-sandbox 2.11.0, matching caches, supplied contract wasm and explicit loopback permission. `scripts/demo.sh --check` checks file presence only. Use [SETUP](SETUP.md) for setup/wasm commands and [JUDGES](../JUDGES.md) for expected output. Never work around bind restrictions or download tools without authorization. WASI, real TEE/testnet, CI execution and wasm/source correspondence remain unconfirmed. Historical notes below retain their original context.
 
-## Japanese reference
+## Detailed reference
 
-# 実行環境ごとの状態と再開条件
+# Environment status and resumption requirements
 
-更新: 2026-11-10（T009）。初回準備、wasm 生成、オフラインテストのコマンドは [SETUP.md](SETUP.md) に集約しています。
+Updated: 2026-11-10 (T009). Initial setup, wasm generation and offline commands are collected in [SETUP.md](SETUP.md).
 
-## 検証の出所
+## Validation provenance
 
-- 運用者のホスト通常シェルでは、2026-11-10 に path-5 が `exit=0` で完走。[demo-output-host-path5.txt](demo-output-host-path5.txt) は全5版の deploy → whitelist/register → submit → get → verify が `matched` / `VERIFIED` の記録です。合成データによる**仮想空間での検証**です。
-- 現行 judge は `0.1.0/lean-path-7` と `0.1.0/lean-spend-3`。後記の T006 ホスト記録（path-7 / spend-1、全10版 matched）は保全しています。[T008 ホスト記録](demo-output-host-t008.txt)で path-7 / spend-2 の全10版 matched / exit 0 を確認済み。FIX5 の path-7 / spend-3 も[運用者ホスト記録](demo-output-host-fix5.txt)で全10版 matched / demo exit 0 を確認済みです。今回は localhost Ollama 以外の通信禁止のため NEAR は起動していません。エージェント環境では localhost bind が `Operation not permitted (os error 1)` で失敗するため、同環境でのチェーン完走とは扱いません。
-- judge のオフラインテストと Lean のビルド・仕様テスト、契約の mock 単体テストは既存キャッシュで実行できます。sandbox 統合テストを ignore に変えて成功扱いにはしません。
+- On 2026-11-10 the operator completed path-5 in the host shell with `exit=0`. [demo-output-host-path5.txt](demo-output-host-path5.txt) records deploy → whitelist/register → submit → get → verify for all 5 versions, `matched` / `VERIFIED`. **simulated environment, synthetic data**.
+- At this historical stage, judges were `0.1.0/lean-path-7` and `0.1.0/lean-spend-3`. The T006 host record (path-7 / spend-1, all 10 versions matched) is preserved below. [T008 host record](demo-output-host-t008.txt) confirms all 10 path-7 / spend-2 versions matched / exit 0. [FIX5 operator host record](demo-output-host-fix5.txt) confirms all 10 path-7 / spend-3 versions matched / demo exit 0. This task permitted only localhost Ollama and did not start NEAR. Agent-environment localhost bind fails with `Operation not permitted (os error 1)`; this is not a completed chain run.
+- Offline judge tests, Lean builds/spec tests and mocked contract unit tests run with existing caches. Sandbox integration failures are not converted to ignored tests to claim success.
 
-## バイナリ・wasm がない場合
+## Missing binaries or wasm
 
-デモは不足を表示して exit 2 で止まります。自動取得・インストールは行いません。`scripts/demo.sh --check` は存在確認のみです。必要物のバージョンと生成・持込み手順は [SETUP.md](SETUP.md) に記載しています。クローンだけで完全オフラインの初回ビルドができるという意味ではありません。
+The demo reports missing resources and exits 2 without downloads/installations. `scripts/demo.sh --check` checks presence only. [SETUP.md](SETUP.md) lists versions and build/provisioning steps. A clone alone does not enable an initial fully offline build.
 
-`NEAR_SANDBOX_BIN_PATH` に実在する sandbox 2.11.0 の絶対パスを指定します。契約統合テストでは指定しないと依存 crate が実行時ダウンロードを試みることがあり、Cargo の `--offline` だけでは子プロセスの通信を止められません。
+Set `NEAR_SANDBOX_BIN_PATH` to the absolute path of an installed sandbox 2.11.0. Without it, contract-test dependencies may attempt runtime downloads; Cargo `--offline` alone does not prevent subprocess networking.
 
-## ソケットの権限がない場合
+## Missing socket permissions
 
 ```text
 Local sandbox could not start: Error while binding socket to a port 0:
 Operation not permitted (os error 1)
 ```
 
-この場合は localhost の bind / listen を許す通常シェルで、同じコード・資材を使って再実行します。権限変更や制限回避は行いません。testnet アカウント・秘密鍵は不要です。デモは外部 peer / telemetry / RPC フォールバックを無効化しています。
+Rerun with identical code/resources in a normal shell permitting localhost bind / listen. Do not change permissions or bypass restrictions. No testnet account/private key is needed. External peers, telemetry and RPC fallbacks are disabled.
 
 ```sh
 scripts/demo.sh
 ```
 
-毎回のログは `demo-artifacts/demo-output.txt`、再検証用 JSON は `demo-artifacts/path/*.json` / `demo-artifacts/spend/*.json` です。既存の公開参照ログを上書きしません。両題材各5版、計10版の `matched` とプロセスの exit 0 を両方確認してください。
+Each run writes `demo-artifacts/demo-output.txt` and replay JSON under `demo-artifacts/path/*.json` / `demo-artifacts/spend/*.json`, preserving public reference logs. Check both `matched` for all 10 versions (5 per subject) and process exit 0.
 
-## 継続する未確認事項
+## Outstanding checks at that stage
 
-- 持込み wasm とソースの同一性。R1 では wasm 標準ライブラリがなく再ビルドできていません。
-- `wasm32-wasip2` 標準ライブラリ不足による judge の WASI ビルド・ランタイム実行。ネイティブの Lean 子プロセスは WASI 対応していません。
-- 本物の TEE / testnet。local の attestation は mock です。
-- 公開用に匿名化したテスト wasm のチェーン実行。既存 FIX5 ホストログは開発コピーの資材による記録で、公開コピーの実行確認とは区別します。
-- 契約 clippy の診断は R2 で解消済み。T005 の all-targets / -D warnings も成功し、依存 wasmparser の future-incompatibility 通知のみ継続します。
-- 第三者ライセンス一覧の不足警告と、judge / Lean を含む現行 SBOM。ローカルに不足ライセンス原文がなく、外部取得もしていません。
+- Supplied wasm/source correspondence. R1 lacked wasm standard libraries and could not rebuild.
+- Judge WASI build/runtime: missing `wasm32-wasip2` standard library. Native Lean subprocesses do not support WASI.
+- Real TEE / testnet. Local attestation is mock.
+- Chain execution of anonymized public test wasm. FIX5 host logs use development resources; they do not establish public-copy execution.
+- Contract clippy diagnostics were resolved in R2; T005 all-targets / -D warnings also passed. The dependency wasmparser future-incompatibility notice remains.
+- Incomplete third-party license inventory and current judge / Lean SBOM. Missing license originals were unavailable locally and were not fetched.
 
-## 2026-11-10 運用者ホスト確認 (path-5)
-R3 修正後、サンドボックス外で lake build・judge/契約の全テスト・scripts/demo.sh を実行し、すべて成功(demo exit 0、5版とも chain/verify matched)。ログ: docs/demo-output-host-path5.txt
+## 2026-11-10 operator host check (path-5)
+After R3, lake build, all judge/contract tests and scripts/demo.sh passed outside the restricted sandbox (demo exit 0; all 5 chain/verify results matched). Log: docs/demo-output-host-path5.txt
 
-## 2026-11-10 運用者ホスト確認 (path-6, T005 後)
-lake build・judge 47件・契約 72件・demo.sh すべて成功(exit 0、5版とも matched)。ログ: docs/demo-output-host-path6.txt
+## 2026-11-10 operator host check (path-6, after T005)
+lake build, 47 judge tests, 72 contract tests and demo.sh passed (exit 0; all 5 versions matched). Log: docs/demo-output-host-path6.txt
 
-## 2026-11-10 運用者ホスト確認 (T006 後, path-7 / spend-1)
-lake build 両題材・答え漏れ検査・judge 57件・契約 72件・demo.sh 両題材すべて成功(exit 0、10版とも matched)。ログ: docs/demo-output-host-t006.txt
+## 2026-11-10 operator host check (after T006, path-7 / spend-1)
+Both lake builds, proof leak scan, 57 judge tests, 72 contract tests and both demo.sh subjects passed (exit 0; all 10 versions matched). Log: docs/demo-output-host-t006.txt
 
-## 2026-11-10 運用者ホスト確認 (FIX5 後)
-漏れ検査から内部 QA 報告 docs/qa/ を除外(公開対象外・ブラインドコピー対象外)。両 lake build・demo.sh 両題材10版 matched / exit 0 は[デモログ](demo-output-host-fix5.txt)で確認。judge66件・契約72件の成功は運用者の実行報告（このログに全テスト明細はない）。
+## 2026-11-10 operator host check (after FIX5)
+Internal docs/qa/ reports were excluded from the leak scan (never exported or included in blind copies). The [demo log](demo-output-host-fix5.txt) confirms both lake builds and all 10 demo versions matched / exit 0. The operator reported 66 judge and 72 contract tests passing; full test details are not in that log.

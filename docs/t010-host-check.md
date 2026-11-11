@@ -1,6 +1,6 @@
 # T010 host checks — pending
 
-T010 performed offline source/native/mock checks only. No NEAR sandbox, demo body or testnet RPC/signing was run. Examples use a **simulated environment, synthetic data** / 仮想空間での検証. Never substitute an older wasm or a failed build for these checks.
+T010 performed offline source/native/mock checks only. No NEAR sandbox, demo body or testnet RPC/signing was run. Examples use a **simulated environment, synthetic data**. Never substitute an older wasm or a failed build for these checks.
 
 ## Rebuild current contract wasm
 

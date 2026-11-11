@@ -33,7 +33,7 @@ REDACTED = "***REDACTED***"
 
 DONE_NUDGE = "The judge accepted your candidate or you wrote the repair record. Call done now to submit it officially; bash alone does not finish the run."
 
-NUDGE = "まだ bash / done が呼ばれていません。作業を続け、完了したら done を呼んでください。"
+NUDGE = "No bash / done call yet. Continue working, then call done when finished."
 
 # Commands that reach the network (or install/fetch code) are rejected before
 # execution. This is a guardrail for a cooperative agent, not a sandbox.
@@ -581,32 +581,32 @@ def write_record(path, *, model, subject, version, workdir, judge_command,
         % (model, DEFAULT_BASE_URL, len(attempts), verdict,
            ", ".join(reasons) if reasons else "no reason codes"),
         "",
-        "# 記録（NEAR AI Cloud / %s）" % model,
+        "# Record (NEAR AI Cloud / %s)" % model,
         "",
-        "合成データによる**仮想空間での検証**の記録。",
+        "Record of a **simulated environment, synthetic data**.",
         "",
-        "## 最終結果",
+        "## Final result",
         "",
-        "- verdict: `%s`、理由コード: `%s`" % (verdict, reasons),
-        "- 攻撃: candidate %s/%s 成功" % (checks.get("candidate_attacks_working"),
+        "- verdict: `%s`; reason codes: `%s`" % (verdict, reasons),
+        "- Attacks: candidate %s/%s working" % (checks.get("candidate_attacks_working"),
                                           checks.get("attacks_total")),
-        "- 回帰: %s/%s 通過" % (checks.get("regressions_passed"),
+        "- Regressions: %s/%s passed" % (checks.get("regressions_passed"),
                                 checks.get("regressions_total")),
-        "- 証明: %s" % ((report or {}).get("proof")),
-        "- 判定コマンド: `%s`" % " ".join(judge_command),
-        "- bundle 再検証: %s" % (verify or "未実施"),
-        "- 停止理由: `%s`" % stop_reason,
+        "- Proof: %s" % ((report or {}).get("proof")),
+        "- Judge command: `%s`" % " ".join(judge_command),
+        "- Bundle replay: %s" % (verify or "not run"),
+        "- Stop reason: `%s`" % stop_reason,
         "- done_called: `%s`" % bool(done_summaries),
         "- final_judge (tool fallback, separate from done attempts): `%s`" % final_judge,
-        "- 料金概算（USD、upper_bound はキャッシュ割引前の上限）: `%s`" % cost,
+        "- Estimated cost (USD; upper_bound is before cache discounts): `%s`" % cost,
         "",
-        "## 試行履歴",
+        "## Attempt history",
         "",
-        "判定 %d 回。" % len(attempts),
+        "%d judgement(s)." % len(attempts),
         "",
     ]
     for entry in attempts:
-        lines.append("%d 回目: `%s`（%s、%.1f 秒、ターン %s、累計トークン %s）"
+        lines.append("Attempt %d: `%s` (%s, %.1f seconds, turn %s, cumulative tokens %s)"
                      % (entry["attempt"], entry["verdict"],
                         entry["reason_codes"], entry["seconds"],
                         entry["turn"], entry["tokens"]["total_tokens"]))
@@ -614,7 +614,7 @@ def write_record(path, *, model, subject, version, workdir, judge_command,
         lines.append("> %s" % entry["summary"])
         lines.append("")
     lines += [
-        "## 最終ファイル全文",
+        "## Complete final files",
         "",
         "`%s`:" % target.relative_to(workdir) if target.is_file() else "Target.lean:",
         "",
@@ -622,25 +622,25 @@ def write_record(path, *, model, subject, version, workdir, judge_command,
         "`%s`:" % proof.relative_to(workdir) if proof.is_file() else "Proof.lean:",
         "",
         "```lean", proof_text.rstrip(), "```", "",
-        "## モデルの最終報告",
+        "## Model final report",
         "",
-        (done_summaries[-1] if done_summaries else "(done の summary なし)"),
+        (done_summaries[-1] if done_summaries else "(no done summary)"),
         "",
-        "## 掛かった時間・トークン",
+        "## Time and tokens",
         "",
-        "- 合計 %.1f 秒（API 往復・bash・判定を含む）" % seconds,
-        "- トークン: prompt %d / completion %d / total %d"
+        "- Total %.1f seconds (including API round trips, bash and judging)" % seconds,
+        "- Tokens: prompt %d / completion %d / total %d"
         % (tokens["prompt_tokens"], tokens["completion_tokens"],
            tokens["total_tokens"]),
-        "- 判定回数: %d" % len(attempts),
+        "- Judgements: %d" % len(attempts),
         "",
-        "## 環境上の未解決事項",
+        "## Environmental limitations",
         "",
-        "- この記録は道具が自動生成したもので、修正内容の説明はモデルの自己"
-        "報告のみ。公開前に運用者が内容を確認する。",
-        "- 判定 JSON には Lean の診断が含まれないため、エラー文の要約は "
-        "judge の stderr から抽出した行に限る。",
-        "- 外部通信は NEAR AI Cloud の models / chat completions。chain 記録は実施していない。",
+        "- This record is generated; repair explanations are model self-reports. "
+        "The operator must review it before publication.",
+        "- Judge JSON lacks Lean diagnostics; error summaries include only "
+        "lines extracted from judge stderr.",
+        "- External calls use NEAR AI Cloud models / chat completions. No chain record was submitted.",
     ]
     Path(path).write_text(redact("\n".join(lines)))
 

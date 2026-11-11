@@ -2,7 +2,7 @@
 
 ## English summary
 
-**simulated environment, synthetic data / 仮想空間での検証**. Model
+**simulated environment, synthetic data**. Model
 `deepseek/deepseek-v4.1-flash` ran through NEAR AI Cloud in an answer-withheld
 copy on **2026-11-10, 04:50–05:07 UTC** (logged 04:50:42–05:07:44: 1,022 seconds).
 It used **120 turns**, **5,771,118 prompt / 85,891 completion tokens**
@@ -67,7 +67,7 @@ TEE or affiliation with NEAR AI is claimed; using its Cloud API is the connectio
 
 T013 measured a fresh no-chain bundle + verify in **16.041 seconds** on macOS
 arm64 with installed toolchains and warm caches, alongside the fixture checks
-(simulated environment, synthetic data / 仮想空間での検証). Verdict accept,
+(simulated environment, synthetic data). Verdict accept,
 0/12 attacks, 16/16 regressions, proof=true, `VERIFIED`, 1,028 export checks.
 With version label `after_nearai`, the current inputs SHA-256 is
 `b8a1eae0597d8a42c51c78f4c62d2603d272ecab2305b701c2f1ce3729f80829`;
@@ -87,57 +87,57 @@ are replaced with `<blind-copy>`.
 
 ---
 
-# NX1: AI エージェントの支出上限チェック（spend）修正記録
+# NX1: Agent spending-limit check (spend) repair record
 
-作業者: nearai（修正担当 AI）
-作業ディレクトリ: 準備済みリポジトリコピー（参照解答・after_honest 不在のブラインドコピー）
-外部通信・インストール・commit・push なし。他ディレクトリの参照なし。
+Agent: nearai (repair AI)
+Workdir: prepared answer-withheld repository copy without after_honest/reference answers
+No model-command external networking, installations, commits, pushes or access to other directories.
 
-## 1. 最終結果
+## 1. Final result
 
-判定コマンド:
+Judge command:
 
 ```sh
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean --subject spend lean after_nearai
 ```
 
-| 項目 | 値 |
+| Item | Value |
 | --- | --- |
 | verdict | accept |
 | judge_version | 0.1.0/lean-spend-3 |
-| validation_scope | 仮想空間での検証（simulated environment, synthetic data） |
+| Validation environment (English description) | simulated environment, synthetic data |
 | reason_codes | [] |
 | policy_violations | [] |
-| 攻撃 | 候補成功 0/12（baseline は 12/12 で脆弱性を再現） |
-| 回帰 | 16/16 成功 |
+| Attacks | Candidate 0/12 working (baseline reproduces 12/12) |
+| Regressions | 16/16 passed |
 | proof | verified: true, approved_spec_sha256: e3933e5161e3cbd034aa95cdf11659ffec4407c9697dbf405869d5a3fee5bebe |
 | inputs_sha256 | aeb2d11c25af0a1f7b6aff701d450fb20f0ea97e61ef74dd2028fa44be11c6f7 |
 | exit code | 0 |
 
-補足（同じコマンドで再確認した他版。リポジトリ内の表と一致）:
+Other versions rechecked with the same command, matching repository tables:
 
-- before: reject, ATTACK_STILL_WORKS, 攻撃 12/12
-- after_saturate: reject, ATTACK_STILL_WORKS, 攻撃 3/12（飽和加算は上限最大で数学和の超過を拒否できない）
-- after_hardcode / after_cheat / after_reject_all も reject
+- before: reject, ATTACK_STILL_WORKS, attacks 12/12
+- after_saturate: reject, ATTACK_STILL_WORKS, attacks 3/12 (saturation misses mathematical overflow at the maximum limit)
+- after_hardcode / after_cheat / after_reject_all also reject
 
-「kernel が固定 spec と固定テストに対する証明を検査し、元の回帰を再実行した」という事実のみを記録する。本修正が安全だという主張ではない。
+The Lean kernel checked a proof against the fixed spec; fixed tests and original regressions were rerun. This does not establish general security of the repair.
 
-## 2. 試行の回数と各回の reject と修正
+## 2. Attempts, failures and revisions
 
-ブラインドコピーには参照の after_honest/Target.lean と after_honest/Proof.lean が無いため自分で候補を書いた。判定器を回す前に安価に確認できるよう demo-artifacts/scratch/spend/（.gitignore 対象の作業用ディレクトリ）に固定入力（SpendSpec.lean, Main.lean, Audit.lean, TargetAudit.lean, lakefile.toml, lean-toolchain）をコピーして lake build を直接回した。scratch は判定前に削除した。
+The blind copy lacked reference after_honest/Target.lean and after_honest/Proof.lean, so the candidate was written independently. For inexpensive local checks before judging, fixed inputs (SpendSpec.lean, Main.lean, Audit.lean, TargetAudit.lean, lakefile.toml, lean-toolchain) were copied into ignored demo-artifacts/scratch/spend/ and built with lake build. Scratch was removed before judging.
 
-### 試行 0: 最初の着想（judge に出す前にローカルでエラーを検出）
+### Attempt 0: Initial idea (local error before judge submission)
 
-before は decide (spent + amount ≤ limit) で、UInt64 の加算が 2 の 64 乗で巻き戻るため spent + amount が上限を超えても小さく見える（例: 0 18446744073709551615 1 が true）。方針は「巻き戻らない形に書き換える」= 引き算で判定する:
+Baseline uses decide (spent + amount ≤ limit). UInt64 addition wraps at 2^64, making an over-limit sum look small (e.g. 0 18446744073709551615 1 returns true). The fix uses subtraction to avoid wraparound:
 
 ```lean
 def authorize (limit spent amount : UInt64) : Bool :=
   spent ≤ limit && amount ≤ limit - spent
 ```
 
-数学和 spent + amount ≤ limit と同値（spent ≤ limit の下で limit - spent は自然数の引き算になり、amount ≤ limit - spent ↔ spent + amount ≤ limit）。
+This is equivalent to mathematical spent + amount ≤ limit: when spent ≤ limit, limit - spent is natural subtraction and amount ≤ limit - spent ↔ spent + amount ≤ limit.
 
-最初に書いた証明（失敗）:
+Initial proof (failed):
 
 ```lean
 theorem patch_sound : SpendSpec.Correct Target.authorize := by
@@ -151,7 +151,7 @@ theorem patch_sound : SpendSpec.Correct Target.authorize := by
     omega
 ```
 
-Lean のエラー文:
+Lean diagnostics:
 
 ```
 error: after_honest/Proof.lean:8:4: omega could not prove the goal:
@@ -176,41 +176,41 @@ where
  d := ↑a.toNat
 ```
 
-原因: simp が spent ≤ limit を toNat の不等式に落とす一方、amount ≤ limit - spent に現れる UInt64 の引き算は omega では扱えない。(l - s).toNat を自然数の引き算に変換する補題 UInt64.toNat_sub_of_le を明示的に使えば omega に渡せる。
+Cause: simp converts spent ≤ limit to a toNat inequality, but omega cannot handle UInt64 subtraction in amount ≤ limit - spent. Explicit UInt64.toNat_sub_of_le converts (l - s).toNat to natural subtraction for omega.
 
-### 試行 1: toNat_sub_of_le を明示して成功（ローカル）
+### Attempt 1: Explicit toNat_sub_of_le succeeds locally
 
-使用する補題を #check で確認（demo-artifacts/scratch/probe.lean、削除済み）:
+Checked lemma types with #check (demo-artifacts/scratch/probe.lean, since removed):
 
 ```
 UInt64.toNat_sub_of_le : ∀ (a b : UInt64), b ≤ a → (a - b).toNat = a.toNat - b.toNat
 UInt64.le_iff_toNat_le : ∀ {a b : UInt64}, a ≤ b ↔ a.toNat ≤ b.toNat
 ```
 
-- 順方向: h : spent ≤ limit ∧ amount ≤ limit - spent から hsl : s ≤ l と hal : a ≤ l - s を取り出し、hsub := UInt64.toNat_sub_of_le l s hsl で (l - s).toNat = l.toNat - s.toNat に直してから UInt64.le_iff_toNat_le.mp で自然数の不等式に落とし、omega で s.toNat + a.toNat ≤ l.toNat を得る。
-- 逆方向: h : s.toNat + a.toNat ≤ l.toNat から omega で hsl' : s.toNat ≤ l.toNat、hsl : s ≤ l := UInt64.le_iff_toNat_le.mpr hsl'、hsub で引き算を自然数に直して hal : a ≤ l - s、最後に simp only [..., decide_eq_true_eq] で ∧ の証明に組み替えて exact ⟨hsl, hal⟩。
+- Forward: extract hsl : s ≤ l and hal : a ≤ l - s from h : spent ≤ limit ∧ amount ≤ limit - spent. Use hsub := UInt64.toNat_sub_of_le l s hsl to obtain (l - s).toNat = l.toNat - s.toNat, convert with UInt64.le_iff_toNat_le.mp, then omega gives s.toNat + a.toNat ≤ l.toNat.
+- Reverse: from h : s.toNat + a.toNat ≤ l.toNat, omega gives hsl' : s.toNat ≤ l.toNat; derive hsl : s ≤ l := UInt64.le_iff_toNat_le.mpr hsl', use hsub for subtraction and obtain hal : a ≤ l - s. Finish with simp only [..., decide_eq_true_eq] and exact ⟨hsl, hal⟩.
 
-この時点で scratch の lake build は成功し、公理監査も 'checked_patch' depends on axioms: [propext, Quot.sound]（許可集合内）、TargetAudit.lean も FIXSEAL_TARGET_POLICY_OK を出力した。
+Scratch lake build then passed. Axiom output was 'checked_patch' depends on axioms: [propext, Quot.sound] (allowed); TargetAudit.lean printed FIXSEAL_TARGET_POLICY_OK.
 
-### 試行 2: 最終候補を判定器で実行 → 一発 accept
+### Attempt 2: Final candidate accepted on first judge submission
 
-lean/targets/spend/after_nearai/ を before/ からコピーし（tests/regression.json はバイト同一）、Target.lean と Proof.lean のみ編集した。最終形の Target.lean は decide を使う UInt64/Bool 演算のみの版。judge は reject 理由を 1 つも出さず accept。
+Copied before/ to lean/targets/spend/after_nearai/, kept tests/regression.json byte-identical, and edited only Target.lean/Proof.lean. Final Target uses only decide and UInt64/Bool operations. Judge accepted without even 1 rejection reason.
 
-集計: Lean のコンパイルエラーはローカルで 1 回（試行 0）。判定器（judge）が出した reject は 0 回。試行 2 回で accept。
+Counts: 1 local Lean compilation failure (attempt 0), 0 judge rejections; accepted at attempt 2.
 
-## 3. 制約への対応
+## 3. Constraint compliance
 
-- Target.lean は UInt64 と Bool の演算のみ。toNat・Nat・BitVec・Fin・整数の数値射影・match / by・scope / 別名 / syntax 定義は不使用（policy.json の target_forbidden_identifiers、表現アクセス検査、TargetAudit.lean の elaborated body 検査に抵触しない）。
+- Target.lean uses only UInt64/Bool operations, without toNat, Nat, BitVec, Fin, integer numeric projections, match / by or scope / alias / syntax definitions. It passes policy.json target_forbidden_identifiers, representation-access checks and TargetAudit.lean elaborated-body checks.
 
-- Proof.lean は自由なので toNat と core 補題・omega を使用。sorry / admit / axiom / native_decide / bv_decide / implemented_by / extern / unsafe / opaque / set_option は不使用。追加宣言・import なし。
+- Unrestricted Proof.lean uses toNat, core lemmas and omega. No sorry / admit / axiom / native_decide / bv_decide / implemented_by / extern / unsafe / opaque / set_option; no additional declarations/imports.
 
-- SpendSpec.lean、Main.lean、Audit.lean、TargetAudit.lean、lakefile.toml、lean-toolchain、corpus.json、policy.json、回帰テストは無変更（judge の入力ハッシュでも baseline と candidate が一致）。
+- SpendSpec.lean, Main.lean, Audit.lean, TargetAudit.lean, lakefile.toml, lean-toolchain, corpus.json, policy.json and regressions are unchanged; baseline/candidate judge input hashes agree.
 
-- 攻撃入力の直書きなし（contains_spend_literal が探す完全な数値三つ組は Target / Proof に無い）。
+- No hardcoded attack inputs: Target / Proof contain none of the complete numeric triples checked by contains_spend_literal.
 
-- 仕様を弱めていない。Correct の同値 authorize l s a = true ↔ s.toNat + a.toNat ≤ l.toNat をそのまま証明した。
+- The specification is unchanged: the proof establishes Correct equivalence authorize l s a = true ↔ s.toNat + a.toNat ≤ l.toNat.
 
-## 4. 最終の Target.lean と Proof.lean 全文
+## 4. Complete final Target.lean and Proof.lean
 
 ### lean/targets/spend/after_nearai/Target.lean
 
@@ -257,24 +257,24 @@ theorem patch_sound : SpendSpec.Correct Target.authorize := by
     exact ⟨hsl, hal⟩
 ```
 
-lean/targets/spend/after_nearai/tests/regression.json は before/tests/regression.json とバイト同一（sha256 be5d23513c206ffd62d2753080718307582f4873d66a55e1d06fda027650995e）。
+lean/targets/spend/after_nearai/tests/regression.json is byte-identical to before/tests/regression.json (sha256 be5d23513c206ffd62d2753080718307582f4873d66a55e1d06fda027650995e).
 
-## 5. 掛かった時間
+## 5. Time spent
 
-探索開始から最終 accept まで約 7 分（13:50 開始、13:57 終了）。概算の内訳:
+About 7 minutes from exploration to final accept (13:50 start, 13:57 finish). Approximate breakdown:
 
-- 仕様・policy・corpus・judge ソース（judge/src/lean.rs の検査、judge/src/lib.rs の採点、Main.lean）の読解: 約 3 分
+- Reading spec/policy/corpus/judge source (judge/src/lean.rs checks, judge/src/lib.rs scoring, Main.lean): about 3 minutes
 
-- scratch プロジェクト準備と Lean のビルド 2 回（エラー 1 回 → 修正 1 回）: 約 2 分
+- Scratch preparation and 2 Lean builds (1 error → 1 revision): about 2 minutes
 
-- 候補作成と judge 実行（accept）+ 他版の再確認: 約 2 分
+- Candidate creation/judge accept and other-version rechecks: about 2 minutes
 
-## 6. 限界と未確認事項
+## 6. Limits and outstanding checks
 
-- 固定 spec ハッシュと判定器の一致は、このコピーに pin された値に依存する。SpendSpec.lean 内容の人間承認履歴はリポジトリ内に無い。
+- Spec hash/judge agreement depends on this copy's pinned values. No human SpendSpec.lean approval history exists in the repository.
 
-- 攻撃 12 件・回帰 16 件は固定コーパスに対する結果で、任意の難読化への耐性や汎用サンドボックス性を保証しない。
+- 12 attacks and 16 regressions are fixed-corpus results; they do not establish arbitrary-obfuscation resistance or a general sandbox.
 
-- Rust 実装と Lean のブリッジ証明（Aeneas 等）は対象外。Main.lean の入出力層は証明範囲外。
+- Rust/Lean correspondence proofs (e.g. Aeneas) and Main.lean I/O are outside scope.
 
-- WASI / TEE 実行は未確認。
+- WASI / TEE execution is unconfirmed.

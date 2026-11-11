@@ -18,97 +18,97 @@ See [JUDGES](../JUDGES.md) for all reason codes, [AGENTS](../AGENTS.md) for cand
 
 Spend-4 adds a typed expression export from the elaborated Target and compares it with the shared Rust interpreter on 1,028 inputs. Reports/spend summaries include canonical JSON as a policy_expr string and policy_expr_sha256; replay re-exports and checks both. The new EXPORT_MISMATCH reason rejects a comparison disagreement. The fixed exporter/interpreter and the record submitter remain trusted; the Lean proof covers Target.authorize, while fixed-input correspondence is a check, not a proof. No TEE is used. [Wire format, guard and keys](../docs/guard.md).
 
-## Japanese reference
+## Detailed reference
 
 # Fixseal judge
 
-ダミーのパス・トラバーサルに対する、**この攻撃群・この判定プログラムでの結果**を出すローカル判定コア。合成データによる「仮想空間での検証」。契約、アカウント、Ollama、TEE、外部通信は使わない。
+Local judging core for dummy path traversal: results apply to **these attacks and this judge** in a **simulated environment, synthetic data**. No contract, account, Ollama, TEE or external network is used.
 
-リポジトリ直下から実行する（Rust と依存キャッシュ、利用環境に合った PATH が必要）:
+Run at the repository root with Rust, cached dependencies and the appropriate PATH:
 
 ```sh
 cargo test --manifest-path judge/Cargo.toml --locked --offline
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- target after_honest
 ```
 
-最後の引数を `before` / `after_hardcode` / `after_weaken_test` に替えると reject を再現できる。stdout は改行付きの JSON 一つ。終了コードは accept が 0、reject が 1、読込・CLI・JSON転送形式エラーが 2（stderr に説明、stdout は空）。判定内容の形式違反は `POLICY_VIOLATION` の JSON になる。
+Use `before` / `after_hardcode` / `after_weaken_test` as the final argument to reproduce rejection. Stdout is one JSON object plus newline. Exit codes: accept 0, reject 1, read/CLI/JSON transport errors 2 (explanation on stderr, empty stdout). Invalid judging content yields `POLICY_VIOLATION` JSON.
 
-## ターゲットと実行方式
+## Targets and execution
 
-`../target/` の各版に `path.fn` と `tests/regression.json` がある。修正前は URL デコード → ルートとの結合 → 正規化を行い、ルート外のパスを返してしまう。正直な修正では正規化後に許可ルート `/sandbox/files` 内かを確認する。hardcode 版は公開攻撃一つだけを拒否する。weaken_test 版は全入力を拒否し、正常系をテストから取り除く。
+Each version under `../target/` has `path.fn` and `tests/regression.json`. Baseline URL-decodes, joins the root and normalizes, allowing escape. Honest checks containment under `/sandbox/files` after normalization. Hardcode rejects one public attack. Weaken_test rejects all inputs and removes normal regressions.
 
-`path.fn` は小さなパス処理用の命令言語。Rust ソースのコンパイルや子プロセスを必要とせず、WASI でも入力されたソースを実行できるよう、Rust 製の固定インタープリタで評価する。版名で実装を選ぶ方式ではなく、ソースを読み、以下の命令を上から実行する。
+`path.fn` is a small instruction language interpreted by fixed Rust code, without Rust compilation or subprocesses, to support source execution in WASI. The judge reads source and executes instructions in order; version names do not select implementations.
 
-| 命令 | 動作 |
+| Instruction | Behavior |
 | --- | --- |
-| `decode_percent` | `%HH` を一度 UTF-8 デコード。不正なエンコード・UTF-8・NUL は拒否。 |
-| `join_root` | 相対パスに許可ルートを前置。絶対パスはそのまま。 |
-| `normalize` | POSIX の `/`、`.`、`..` を字句的に正規化。 |
-| `require_within_root` | 正規化したパスが許可ルートと同じか、その子孫かを確認。 |
-| `reject_exact 文字列` | 現在の文字列が完全一致すると拒否。 |
-| `reject_all` | 全入力を拒否。 |
-| `return_path` | 現在のパスを返す。最終命令として必須。 |
+| `decode_percent` | Decode `%HH` once as UTF-8; reject malformed encoding, UTF-8 and NUL. |
+| `join_root` | Prepend the allowed root to relative paths; leave absolute paths unchanged. |
+| `normalize` | Lexically normalize POSIX `/`, `.` and `..`. |
+| `require_within_root` | Require the normalized path to equal or descend from the allowed root. |
+| `reject_exact STRING` | Reject an exact match with the current string. |
+| `reject_all` | Reject every input. |
+| `return_path` | Return the current path; required as the final instruction. |
 
-空行と `#` から始まる行はコメント扱い。命令数は最大64、ループ・ファイルアクセス・外部実行命令はない。パスは仮想的な文字列で、実ファイルを開かない。OS 固有の区切り、実ファイルシステムの symlink、二重デコードする別アプリの挙動はこのモデルの対象外。
+Blank lines and lines starting with `#` are comments. Maximum 64 instructions; no loops, file access or external execution. Paths are virtual strings; no real files are opened. OS-specific separators, filesystem symlinks and other applications' double decoding are outside the model.
 
-## 入力と判定
+## Inputs and verdicts
 
-ディレクトリ入力 `TARGET_ROOT VERSION` は以下を読む。絶対パスやディレクトリ列挙順、mtime は結果に含めない。
+Directory input `TARGET_ROOT VERSION` reads the following. Absolute paths, directory iteration order and mtime are excluded from results.
 
-- `TARGET_ROOT/before/` の全ファイル: 信頼する修正前のソースと回帰テスト。
-- `TARGET_ROOT/VERSION/` の全ファイル: 判定する修正案。追加ファイルも読み、差分とハッシュに含める。
-- `TARGET_ROOT/corpus.json`: `public` と `variants` の攻撃文字列配列。両方とも非空が必須。
-- `TARGET_ROOT/policy.json`: 完全一致の `editable_paths` / `immutable_paths` と `forbid_attack_literals`。
-- `VERSION` の文字列。
+- All files in `TARGET_ROOT/before/`: trusted baseline source and regressions.
+- All files in `TARGET_ROOT/VERSION/`: candidate, including added files in differences and hashes.
+- `TARGET_ROOT/corpus.json`: nonempty `public` and `variants` arrays of attack strings.
+- `TARGET_ROOT/policy.json`: exact `editable_paths` / `immutable_paths` and `forbid_attack_literals`.
+- The `VERSION` string.
 
-現行ポリシーでは編集は `path.fn` のみ。`tests/regression.json` は編集不可。許可外の追加・削除・変更、必須ファイルの欠落を拒否する。候補のテストが変わっても、回帰判定には修正前のテストを使う。候補ディレクトリにコーパスやポリシーのコピーを追加しても、許可外の追加として拒否する。
+Current VM policy permits editing only `path.fn`; `tests/regression.json` is immutable. Unauthorized additions, deletions, changes and missing required files reject. Original regressions run even if candidate tests change. Candidate corpus/policy copies are unauthorized additions.
 
-攻撃文字列の直書き検査は、編集可能ファイルにコーパス内の文字列または一度デコードした文字列が含まれるかを調べる。Lean モードでは許可構文の文字列エスケープをデコードして比較し、攻撃を一度 URL デコード・`/` 分割した部品リストの直書きも検出する。部品を囲む括弧やコメントも同じ値として比較する（R2）。R3 では Target 内のリスト要素を文字列リテラルとそれを包む括弧に限定し、`let` / `if` 等の式・入れ子リストを含む候補を実行前に `PROOF_CHEATED` で拒否する（空リストは許可）。証明内の `simp [...]` は別の許可構文として扱う。任意の難読化や一般のプログラム解析を扱うものではない。修正前、コーパス、ポリシーは判定者が固定して与える信頼入力。これら自体を差し替えた判定は別の入力ハッシュの結果となる。
+Attack-literal checks search editable files for corpus strings and their once-decoded forms. Lean mode decodes permitted string escapes and detects literal lists of URL-decoded, `/`-split attack components. Parentheses/comments compare as the same value (R2). R3 limits Target list elements to string literals and parentheses; `let` / `if` expressions and nested lists reject before execution as `PROOF_CHEATED` (empty lists allowed). Proof `simp [...]` has separate syntax rules. This is not arbitrary obfuscation detection or general program analysis. Baseline, corpus and policy are operator-fixed trusted inputs; replacing them changes the input hash.
 
-| 理由コード | 条件 |
+| Reason code | Condition |
 | --- | --- |
-| `VULN_NOT_REPRODUCED` | 修正前で全攻撃を再現できない（修正前ソースの形式不正を含む）。 |
-| `ATTACK_STILL_WORKS` | 候補が一つでも正規化後に許可ルート外のパスを返す。 |
-| `REGRESSION_FAILED` | 候補が元の回帰テストを一つでも満たさない。 |
-| `POLICY_VIOLATION` | 差分・直書き・必須入力・入力内容の形式に違反。 |
+| `VULN_NOT_REPRODUCED` | Baseline does not reproduce every attack, including invalid baseline source. |
+| `ATTACK_STILL_WORKS` | Candidate returns any normalized path outside the allowed root. |
+| `REGRESSION_FAILED` | Candidate fails any original regression. |
+| `POLICY_VIOLATION` | Difference, literal, required-input or input-content rules fail. |
 
-理由は複数併記する。理由がない場合のみ accept。空の攻撃群・回帰テストでの accept は認めない。
+Multiple reasons can coexist. Accept requires no reasons. Empty attack or regression sets cannot produce acceptance.
 
-## ハッシュと決定性
+## Hashes and determinism
 
-JSON に `judge_version`、`validation_scope`、`verdict`、`reason_codes`、`input_hashes`、`inputs_sha256`、件数、ポリシー違反を出す。バージョンは `0.1.0/path-vm-1`。実装・意味を変える際はバージョンも更新する必要がある。
+JSON includes `judge_version`, `validation_scope`, `verdict`, `reason_codes`, `input_hashes`, `inputs_sha256`, counts and policy violations. VM version is `0.1.0/path-vm-1`; implementation/semantic changes require a version update.
 
-`input_hashes` は名前順のマップで、各入力の生バイトに SHA-256 を適用する。名前は `baseline/相対パス`、`candidate/相対パス`、`corpus.json`、`policy.json`、`version`。JSON 入力ファイルの空白や末尾改行もハッシュに含まれる。空ディレクトリやファイルメタデータは入力にしない。
+`input_hashes` is a name-sorted map of SHA-256 over each input's raw bytes. Names are `baseline/RELATIVE_PATH`, `candidate/RELATIVE_PATH`, `corpus.json`, `policy.json`, `version`. JSON input whitespace and final newlines are hashed; empty directories and metadata are not.
 
-全体の `inputs_sha256` は、`fixseal-inputs-v1` + NUL を前置し、名前順に `名前のバイト長(u64 big endian)`、`名前(UTF-8)`、`内容のバイト長(u64 big endian)`、`内容` を連結した SHA-256。名前・長さも含めるため、内容の区切りやファイル名の変更も反映される。外部時刻・乱数・ネットワークは参照せず、JSON のフィールド順・配列順・末尾改行を固定している。
+Aggregate `inputs_sha256` is SHA-256 over `fixseal-inputs-v1` + NUL followed, in name order, by name byte length (u64 big endian), name (UTF-8), content byte length (u64 big endian), content. Framing captures boundaries and renames. No external time, randomness or network is consulted. JSON field/array order and final newline are fixed.
 
-`--stdin` でも実行できる。`input::Bundle` の JSON（`version`: 文字列、`baseline` / `candidate`: 相対ファイル名からバイト配列へのマップ、`corpus` / `policy`: バイト配列）を与える。ハッシュの対象はバンドル内の生バイトで、転送用 JSON 自体の空白やキー順ではない。同じ入力をディレクトリ経由・stdin 経由で与えると、出力も同じになる。
+`--stdin` accepts `input::Bundle` JSON: `version` string; `baseline` / `candidate` maps of relative filenames to byte arrays; `corpus` / `policy` byte arrays. Hashes cover embedded raw bytes, not transport JSON whitespace/key order. Equal directory/stdin inputs yield equal outputs.
 
-## WASI と検証状況
+## WASI and validation status
 
 ```sh
 cargo build --manifest-path judge/Cargo.toml --target wasm32-wasip2 --locked --offline
 ```
 
-WASI 固有でない Rust の標準入出力とファイル読み込みを使う。WASI では `--stdin` にバンドルを渡すか、ディレクトリを preopen する実行形態を想定する。2026-11-10 時点の環境ではターゲット標準ライブラリ不足（E0463）でビルドが停止。導入は行っておらず、WASM のビルド成功・ランタイム実行・ネイティブとの出力一致は未確認。TEE 実行も未確認。
+The code uses standard Rust I/O and file reads without WASI-specific calls. Intended WASI usage supplies a bundle via `--stdin` or preopens a directory. On 2026-11-10 the build stopped at missing target standard libraries (E0463); nothing was installed. WASM build/runtime, native-output agreement and TEE execution remain unconfirmed.
 
-ローカルのホスト実行記録は [demo-output-host-path5.txt](../docs/demo-output-host-path5.txt)、環境別の状態は [BLOCKED.md](../docs/BLOCKED.md) を参照。変種攻撃も再現用のダミーとしてこのリポジトリに公開しており、秘密の攻撃群ではない。
+See [demo-output-host-path5.txt](../docs/demo-output-host-path5.txt) for the local host run and [BLOCKED.md](../docs/BLOCKED.md) for environment status. Variant attacks are public dummy replay inputs, not a secret corpus.
 
-## T003: Lean に対する判定
+## T003: Lean judging
 
-T002 の CLI と JSON は維持し、`--lean` を指定した場合に証明を追加検査する。
+T002 CLI/JSON are retained; `--lean` adds proof checks.
 
 ```sh
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- --lean lean after_honest
 ```
 
-`before` / `after_hardcode` / `after_cheat` は reject。Lean ソースをクリーンビルドして実行し、元の攻撃・回帰・差分ポリシーに加え、固定 Spec の SHA-256、禁止構文、`lake build`、証明の型と公理依存を検査する。`PROOF_MISSING` / `PROOF_REJECTED` / `PROOF_CHEATED` を追加した。判定バージョンは `0.1.0/lean-path-7`、追加フィールド `proof` は検査成功の有無と固定 Spec ハッシュを持つ。
+`before` / `after_hardcode` / `after_cheat` reject. A clean Lean build runs original attacks/regressions and difference policy, then checks fixed Spec SHA-256, forbidden syntax, `lake build`, theorem type and axioms. Added reasons: `PROOF_MISSING` / `PROOF_REJECTED` / `PROOF_CHEATED`. Judge version: `0.1.0/lean-path-7`; `proof` contains check status and fixed Spec hash.
 
-`--lean --stdin` も同じ Bundle 形式を使う。ライブラリでは `input::load_lean_bundle` と `judge_lean` を使う。baseline / candidate に共有の6ファイル（Spec、Path、Main、Audit、Lake 設定、toolchain 指定）を含め、実装・証明・回帰入力とともに全バイトをハッシュする。実行入力となるコーパス・ポリシー・版名を含め、honest の個別ハッシュは20件。ハッシュのフレーミングは T002 と同じ。
+`--lean --stdin` uses the same Bundle format. Library calls: `input::load_lean_bundle` and `judge_lean`. Baseline/candidate include 6 shared files (Spec, Path, Main, Audit, Lake configuration, toolchain), hashed with implementation/proof/regressions. With corpus, policy and version, honest has 20 individual hashes. Framing matches T002.
 
-固定 Lean 4.34.1 とネイティブコンパイラが必要。証明がない before / hardcode は既存の行動・ポリシー違反の理由を優先する。禁止事項の検出時は行動検査に失敗しても `PROOF_CHEATED` を付ける。詳細、構文制限、3コマンドの手順は [lean/README.md](../lean/README.md)、保証の限界は [ASSUMPTIONS.md](../ASSUMPTIONS.md) を参照。Lean モードは子プロセスを使うネイティブ実装であり、WASI / TEE での実行は未対応・未検証。
+Requires fixed Lean 4.34.1 and a native compiler. Existing behavior/policy reasons take precedence for proofless before/hardcode. Forbidden constructs add `PROOF_CHEATED` even if behavior fails. See [lean/README.md](../lean/README.md) for syntax and 3 commands and [ASSUMPTIONS.md](../ASSUMPTIONS.md) for limits. Lean subprocess execution is native; WASI / TEE execution is unsupported and unconfirmed.
 
-## T004: オフラインのバンドルと verify
+## T004: Offline bundles and verify
 
 ```sh
 mkdir -p demo-artifacts
@@ -116,30 +116,30 @@ cargo run --manifest-path judge/Cargo.toml --locked --offline -- bundle --lean l
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- verify demo-artifacts/bundle.json
 ```
 
-ビルド済みなら `judge/target/debug/fixseal-judge verify <bundle.json>`。アカウント不要で、通信しない。VM 版は `bundle target after_honest`。`bundle` は reject の記録も正常な成果物として exit 0 で出力する。元の判定コマンドは引き続き accept=0 / reject=1。
+With a built binary, run `judge/target/debug/fixseal-judge verify <bundle.json>`. No account/network needed. VM uses `bundle target after_honest`. `bundle` exports valid rejected reports with exit 0; direct judging still uses accept=0 / reject=1.
 
-証拠バンドルのフィールドは `format: "fixseal-bundle-v1"`、`mode: "lean" | "vm"`、`input: Bundle`、`report: 判定JSON`、`report_sha256`、任意の `chain`。結果ハッシュは judge の `Report::to_json()`（struct の固定順序、UTF-8、末尾 LF 1個）の SHA-256。バンドル JSON 全体やキー順・空白はハッシュ対象にしない。個別・全体入力ハッシュは既存形式を維持する。
+Evidence fields: `format: "fixseal-bundle-v1"`, `mode: "lean" | "vm"`, `input: Bundle`, `report: REPORT_JSON`, `report_sha256`, optional `chain`. Result SHA-256 covers `Report::to_json()` in fixed struct order, UTF-8, with 1 final LF, not whole-bundle JSON ordering/whitespace. Individual/aggregate input framing is unchanged.
 
-`verify` は次を表示する。
+`verify` displays:
 
-- バンドル形式、全入力の個別ハッシュと全体ハッシュの一致。不一致なら実行前に停止。
-- 再実行した verdict と、バージョン・理由・件数・spec を含む判定全文の一致。
-- Lean の固定 spec / 補助コード / 禁止構文検査と `lake build`・公理監査。行動検査で reject された候補の証明も検査し、その失敗理由を表示する。
-- 結果ハッシュの一致。`chain` があるときは `get_fix_proof.bundle_hash` と `summary` も一致確認。
+- Bundle format and individual/aggregate input hash agreement; mismatch stops before execution.
+- Replayed verdict and complete report agreement, including version, reasons, counts and spec.
+- Lean fixed spec/helpers/forbidden syntax checks, `lake build` and axiom checks. Proofs of behaviorally rejected candidates are also checked and their failures displayed.
+- Result hash agreement and, when `chain` exists, `get_fix_proof.bundle_hash` and `summary` agreement.
 
-`chain` は契約の読み戻しそのままの `{bundle_hash, caller, block_timestamp_ms, summary}`。summary は `{inputs_sha256, judge_version, verdict}` をキー名順・空白なしでシリアライズした JSON 文字列。デモは result SHA-256 を契約の `bundle_hash` に記録し、判定の要約を summary に記録する。記録の存在・caller・timestamp の真正性をこの CLI が証明するわけではない。信頼できる出所の読み戻しデータと judge バイナリ・参照入力を使用する。
+`chain` is raw contract readback `{bundle_hash, caller, block_timestamp_ms, summary}`. Summary is a JSON string of `{inputs_sha256, judge_version, verdict}`, sorted by key without spaces. The demo records result SHA-256 as `bundle_hash` and report summary as summary. This CLI does not authenticate record existence, caller or timestamp. Use trusted readback provenance, judge binary and reference inputs.
 
-exit 0=`VERIFIED`（accept / reject の再現一致）、exit 1=`VERIFICATION FAILED`（不一致）、exit 2=ファイル・JSON・引数エラー。証明のない hardcode、禁止事項のある cheat、回帰で落ちる reject_all の reject 記録も検証可能。reject 記録で `VERIFIED` と出ても修正の受理を意味しない。
+Exit 0=`VERIFIED` (accept / reject reproduced), exit 1=`VERIFICATION FAILED` (mismatch), exit 2=file/JSON/argument error. Proofless hardcode, cheating proof and regression-failing reject_all can all have reproducible rejections. `VERIFIED` for a rejected report does not accept the repair.
 
-Lean の実体 bin を別の場所に導入した場合は `FIXSEAL_LEAN_BIN` を指定する。自動取得する proxy へのフォールバックはない。[準備手順](../docs/SETUP.md)を参照。直書き検査の強化に伴い R1 で path-2 から path-3、R2 で path-4、R3 で path-5 に更新した。T005 で wall-clock 制限と `PROOF_TIMEOUT` を追加し path-6 に更新した。過去の path-2 / path-3 / path-4 / path-5 バンドルは判定全文が異なり、現行版での再検証は不一致となる。入力ハッシュ・Spec・VM 版は変更していない。
+For another Lean binary location set `FIXSEAL_LEAN_BIN`; no fallback to downloading proxies. See [setup](../docs/SETUP.md). Literal checks advanced path-2 to path-3 in R1, path-4 in R2 and path-5 in R3. T005 added wall-clock limits / `PROOF_TIMEOUT` as path-6. Old path-2 / path-3 / path-4 / path-5 bundles have different full reports and fail current replay. Input hashes, Spec and VM version were unchanged.
 
-## Lean 子プロセスの時間制限（path-6）
+## Lean subprocess limits (path-6)
 
-ビルド・公理監査・対象実行の各子プロセスは既定120秒で終了する。`FIXSEAL_LEAN_TIMEOUT_SECS` は正整数の秒数を受け付け、不正値・0は既定値になる。超過は `PROOF_TIMEOUT` として reject し、`PROOF_REJECTED` とは区別する。Unix ではプロセスグループを終了して直接の子を回収する。timeout はキャッシュせず、他のキャッシュも制限値別に分ける。入力ハッシュに環境設定は含まれないため、バンドル再検証では同じ toolchain と制限値を使う。[FIX5 ホスト記録](../docs/demo-output-host-fix5.txt)は path-7 / spend-3 の全10版 matched / demo exit 0。
+Each build, axiom check and execution defaults to 120 seconds. `FIXSEAL_LEAN_TIMEOUT_SECS` accepts positive integer seconds; invalid values / 0 use default. Exceeding it rejects as `PROOF_TIMEOUT`, distinct from `PROOF_REJECTED`. Unix terminates the process group and reaps its direct child. Timeouts are uncached; other caches are limit-specific. Environment settings are outside input hashes, so replay requires matching toolchain/limit. [FIX5 host record](../docs/demo-output-host-fix5.txt): all 10 path-7 / spend-3 versions matched / demo exit 0.
 
-## T006: 複数題材と一般的な core 証明
+## T006: Multiple subjects and general core proofs
 
-既定の path は既存の配置・Spec・入力ハッシュを維持。構文受理範囲の変更に伴う判定版は `0.1.0/lean-path-7`。新規の `spend` は `lean/targets/spend/`、判定版 `0.1.0/lean-spend-3`。各題材は Spec ファイルと固定ハッシュ、実行・監査入口、Lake 設定、toolchain、コーパス、ポリシー、Target/Proof ラッパーを持つ。
+Default path keeps its location, Spec and input hashes; syntax changes use `0.1.0/lean-path-7`. New `spend` lives at `lean/targets/spend/`, historical version `0.1.0/lean-spend-3`. Each subject has a fixed Spec/hash, runtime/audit, Lake configuration, toolchain, corpus, policy and Target/Proof wrappers.
 
 ```sh
 mkdir -p demo-artifacts
@@ -147,21 +147,21 @@ cargo run --manifest-path judge/Cargo.toml --locked --offline -- bundle --lean -
 cargo run --manifest-path judge/Cargo.toml --locked --offline -- verify demo-artifacts/spend.json
 ```
 
-ライブラリは `load_lean_subject_bundle(root, version, Subject::Spend)`。spend の Bundle は `subject: "spend"` を持ち、入力ハッシュにも subject を含む。path で省略したときは従来の転送形式・ハッシュ。`--lean --stdin` と verify は Bundle の題材を読み、指定がある場合の不一致は CLI エラー。VM に spend を渡すと reject。CLI の `--subject` は `--lean` の直後に指定する。
+Library: `load_lean_subject_bundle(root, version, Subject::Spend)`. Spend Bundle has `subject: "spend"`, included in input hashes. Omitted path subject retains the original transport/hashes. `--lean --stdin` and verify read the bundle subject; conflicting explicit selection is a CLI error. VM rejects spend. CLI `--subject` follows `--lean`.
 
-spend の Target は UInt64 / Bool の演算に限定し、policy の `target_forbidden_identifiers` を候補 Target のみに適用する。名前空間・ドット記法の各成分を検査し、コメント・文字列は除く。別表現への変換、scope / alias / syntax 定義、数値射影・パターン分解を実行前に POLICY_VIOLATION で拒否する。Proof の toNat は制限しない。after_cheat の Target は UInt64/Bool のみで、攻撃0/12・回帰16/16。不正証明により PROOF_CHEATED のみで拒否する。5版の accept / reject は不変。
+Spend Target permits UInt64 / Bool operations; `target_forbidden_identifiers` applies only to Target. Namespace/dot components are checked, excluding comments/strings. Conversions, scope / alias / syntax definitions, numeric projections and representation patterns reject before execution with POLICY_VIOLATION. Proof toNat is unrestricted. After_cheat Target uses UInt64/Bool and passes attacks 0/12 / regressions 16/16, but rejects with PROOF_CHEATED alone. All 5 verdicts remain unchanged.
 
-spend のコーパスは既存と同じ public / variants の文字列配列で、各要素は `limit spent amount` の10進 UInt64。回帰の expected は文字列 `"true"` / `"false"`。u128 の数学的な和と照合して入力の妥当性を確認し、実際の Lean 関数をビルドして実行する。攻撃数12、回帰16。直書き検査は完全な数値3個の並びを検出し、共通の境界定数だけでは違反にしない。任意の難読化は検出対象外。
+Spend corpus retains public / variants arrays, each containing base-10 UInt64 `limit spent amount` triples; regression expected values are strings `"true"` / `"false"`. Inputs are checked with u128 mathematical sums, then the actual Lean function is built/run. There are 12 attacks and 16 regressions. Literal checks detect complete sets of 3 numbers, not common boundary constants alone; arbitrary obfuscation is outside scope.
 
-proof は一般的な core タクティク・補題名を受理する。追加宣言・import・危険な実行系・環境変更等は拒否し、固定 Spec/実行入口と定理の型、公理依存の監査を維持する。具体的な構文は [AGENTS.md](../AGENTS.md)。制限された source interface であり、汎用サンドボックスではない。キャッシュは題材でも分離する。
+Proof accepts general core tactics/lemmas. Extra declarations/imports, dangerous execution and environment changes reject; fixed Spec/runtime/type and axiom checks remain. See [AGENTS.md](../AGENTS.md). This restricted source interface is not a general sandbox. Caches are separated by subject.
 
-全5版の期待値は [README の表](../README.md#agent-spending-limit-overflow)。仮想空間での検証で honest だけ accept、saturate は最大上限で攻撃3件を許可するため reject。証明本文や固有のヒントは honest 以外に置かず、テストではファイルを読む。`python3 scripts/check-spend-proof-leak.py --self-test` を judge テストからも実行する。
+See [README table](../README.md#agent-spending-limit-overflow) for all 5 versions. In a simulated environment, synthetic data, only honest accepts; saturate allows 3 maximum-limit attacks and rejects. Keep proof bodies/hints only in honest; tests read that file. Judge tests also run `python3 scripts/check-spend-proof-leak.py --self-test`.
 
-`scripts/demo.sh` は path → spend、`--subject path|spend` で単独選択、`--check` は存在確認のみ。FIX5 の path-7 / spend-3 は[運用者がホスト確認済み](../docs/demo-output-host-fix5.txt)。外部通信禁止の作業では実行せず、明示的に loopback NEAR が許可されたホストで確認する。過去 path-6 バンドルも判定全文が異なるため現行版で再生成が必要。
+`scripts/demo.sh` runs path → spend; `--subject path|spend` selects one; `--check` checks presence only. FIX5 path-7 / spend-3 was [confirmed by the operator on the host](../docs/demo-output-host-fix5.txt). Run only on a host explicitly permitting loopback NEAR, never during network-prohibited work. Old path-6 bundles also need regeneration because full reports differ.
 
-## T010: spend-4 の書き出し
+## T010: spend-4 export
 
-型推論後のTargetをTargetAuditで歩き、限定した式の木に書き出す。正準JSONはop/args順・空白と末尾改行なし・数値は10進文字列。そのSHA-256とJSON文字列をreportとspend summaryに含める。summaryは既存3項目にsubject/spec_sha256/policy_expr/policy_expr_sha256を追加し、キー名順でシリアライズする。path形式は維持。攻撃12＋回帰16＋境界格子1,000件で共有解釈器とLean実行を突き合わせ、不一致はEXPORT_MISMATCH。verifyは式も再書き出し・照合する。詳細は[ガード手順](../docs/guard.md)。旧spend-3のホスト記録は履歴であり、現行spend-4のチェーン検証ではない。
+TargetAudit traverses elaborated Target into a restricted expression tree. Canonical JSON orders op/args, has no spaces/final newline and uses base-10 numeric strings. Reports/spend summaries contain this JSON string and SHA-256. Summary adds subject/spec_sha256/policy_expr/policy_expr_sha256 to the existing 3 fields, sorted by key; path format is unchanged. Lean/shared interpreter outputs are compared on 12 attacks + 16 regressions + 1,000 boundary inputs; disagreement gives EXPORT_MISMATCH. Verify re-exports/checks the expression. See [guard guide](../docs/guard.md). Old spend-3 host records are historical, not current spend-4 chain checks.
 
 ## Terminal verdict summary
 

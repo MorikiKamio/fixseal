@@ -25,30 +25,30 @@ cp agent-contract/target/wasm32-unknown-unknown/release/shade_contract_template.
 
 Initial preparation requires separately authorized downloads on a capable machine: Rust 1.99.1 and its wasm target, Lean 4.34.1, locked Cargo dependencies and the sandbox for the target OS/CPU. Transfer prepared caches/binaries into restricted environments. The historical installation examples below were not executed here; do not run them when network access or installation is prohibited. Supplied wasm/source correspondence and a cold setup remain unconfirmed. See [JUDGES](../JUDGES.md) for expected outputs and troubleshooting.
 
-## Japanese reference and historical preparation commands
+## Detailed reference and historical preparation commands
 
-# 初回準備とオフライン再現
+# Initial setup and offline reproduction
 
-クローンには toolchain、依存キャッシュ、NEAR sandbox バイナリ、ビルド済み契約を含めません。この文書は初回準備と、準備済み環境での実行を分けています。R1 では外部取得・インストールを実施しておらず、以下の初回導入と契約の再ビルドは未実行です。
+A clone excludes toolchains, dependency caches, NEAR sandbox and built contracts. This guide separates initial provisioning from prepared-environment execution. R1 performed no downloads/installations; initial setup and contract rebuild below were unexecuted.
 
-## バージョンと必要物
+## Versions and prerequisites
 
-| 資材 | 対応・確認した版 | 必要な経路 |
+| Resource | Supported / checked version | Required route |
 | --- | --- | --- |
-| Rust / Cargo | 1.99.1（既存環境）。edition 2024 対応が必要 | judge / 契約テスト |
-| Lean / Lake | `leanprover/lean4:v4.34.1` 固定、外部 Lean パッケージなし | Lean judge |
-| C コンパイラ | 導入済みのネイティブコンパイラ | Lean 実行ファイル |
-| Cargo 依存 | 各 `Cargo.lock` 固定。near-sdk 5.26.1 / near-api 0.8.6 / near-sandbox crate 0.3.9 | 各 crate |
-| NEAR sandbox 実行ファイル | 2.11.0 | チェーンデモ・統合テスト |
-| Rust wasm 標準ライブラリ | 使用する Rust 用 `wasm32-unknown-unknown` | 契約の初回ビルド |
-| 契約 wasm | `agent-contract/target/near/shade_contract_template.wasm` | チェーンデモ・統合テスト |
-| Python | 3（標準ライブラリのみ） | 作業コピーからの公開書き出し・補助テスト |
+| Rust / Cargo | 1.99.1 (installed); edition 2024 support required | Judge / contract tests |
+| Lean / Lake | Fixed `leanprover/lean4:v4.34.1`; no external Lean packages | Lean judge |
+| C compiler | Installed native compiler | Lean executable |
+| Cargo dependencies | Each `Cargo.lock`; near-sdk 5.26.1 / near-api 0.8.6 / near-sandbox crate 0.3.9 | Each crate |
+| NEAR sandbox executable | 2.11.0 | Chain demo / integration tests |
+| Rust wasm standard library | `wasm32-unknown-unknown` for the selected Rust | Initial contract build |
+| Contract wasm | `agent-contract/target/near/shade_contract_template.wasm` | Chain demo / integration tests |
+| Python | 3 (standard library only) | Development export / helper tests |
 
-macOS arm64 とホストの既存資材での記録があります。他 OS は未検証です。Node、Docker、Shade CLI、testnet / Phala のアカウントは Fixseal のローカル検証には不要です。
+Recorded runs use macOS arm64 and existing host resources; other OSes were untested at this stage. Node, Docker, Shade CLI and testnet / Phala accounts are unnecessary for local Fixseal checks.
 
-## 初回準備（外部取得が許可された環境だけ）
+## Initial provisioning (only where downloads are authorized)
 
-既存の Rust、C コンパイラ、elan を用意した環境で行う例です。通信禁止の作業中には実行しません。オフライン環境へは、同じ OS / CPU / toolchain の環境から toolchain、Cargo キャッシュ、sandbox、wasm を別途持ち込んでください。
+Example with Rust, C compiler and elan already available. Never run during network-prohibited work. Provision offline toolchains, Cargo caches, sandbox and wasm from an environment matching OS / CPU / toolchain.
 
 ```sh
 rustup toolchain install 1.99.1
@@ -58,10 +58,10 @@ cargo +1.99.1 fetch --manifest-path judge/Cargo.toml --locked
 cargo +1.99.1 fetch --manifest-path agent-contract/Cargo.toml --locked
 ```
 
-NEAR sandbox は `near-sandbox` crate 0.3.9 が指定する 2.11.0 を用意します。ローカルの同 crate の `src/runner/mod.rs` にある配布先は次の形式です（このセッションでアクセスしていません）。
+Use sandbox 2.11.0 as selected by `near-sandbox` crate 0.3.9. Its cached `src/runner/mod.rs` specifies this distribution URL format (not accessed in this session):
 
 ```sh
-# 対応する値を選ぶ: Darwin-arm64 / Linux-x86_64 / Linux-aarch64
+# Select the matching platform: Darwin-arm64 / Linux-x86_64 / Linux-aarch64
 FIXSEAL_PLATFORM=Darwin-arm64
 mkdir -p "$HOME/.near/near-sandbox-2.11.0"
 curl --fail --location "https://s3-us-west-1.amazonaws.com/build.nearprotocol.com/nearcore/$FIXSEAL_PLATFORM/2.11.0/near-sandbox.tar.gz" -o /tmp/fixseal-near-sandbox.tar.gz
@@ -70,11 +70,11 @@ export NEAR_SANDBOX_BIN_PATH="$HOME/.near/near-sandbox-2.11.0/near-sandbox"
 "$NEAR_SANDBOX_BIN_PATH" --version
 ```
 
-この URL / 対応プラットフォームはローカルの依存ソースによるもので、配布先の現状・ダウンロード内容の真正性は未検証です。信頼できる配布元の資材を使ってください。macOS x86_64 は同 crate の配布対象外です。
+URL/platforms come from cached dependency source; current availability and download authenticity are unconfirmed. Use trusted distribution resources. That crate does not distribute macOS x86_64 binaries.
 
-## 契約 wasm の生成（準備後はオフライン）
+## Build contract wasm (offline after provisioning)
 
-リポジトリ直下で、wasm 標準ライブラリと locked 依存キャッシュを用意した Rust を使います。`cargo` / `rustc` が同じ toolchain を指すよう PATH を設定します。
+At the repository root, use Rust with wasm standard libraries and locked dependency caches. Set PATH so `cargo` / `rustc` select the same toolchain.
 
 ```sh
 cargo build --manifest-path agent-contract/Cargo.toml --target-dir agent-contract/target --target wasm32-unknown-unknown --release --locked --offline
@@ -82,11 +82,11 @@ mkdir -p agent-contract/target/near
 cp agent-contract/target/wasm32-unknown-unknown/release/shade_contract_template.wasm agent-contract/target/near/shade_contract_template.wasm
 ```
 
-契約の metadata に記録された別の生成手順は、cargo-near 0.19.0 を用意した上で `(cd agent-contract && CARGO_NET_OFFLINE=true cargo near build non-reproducible-wasm --locked --no-abi)` です。R1 の環境では wasm 標準ライブラリがなく、どちらの再ビルドも未検証です。持込み wasm と現在のソースの同一性を確認したとは主張しません。
+Contract metadata also records this alternative with cargo-near 0.19.0: `(cd agent-contract && CARGO_NET_OFFLINE=true cargo near build non-reproducible-wasm --locked --no-abi)`. R1 lacked wasm standard libraries; neither rebuild was confirmed. Supplied wasm/current-source correspondence was not established.
 
-## 準備済み環境での検証（外部取得なし）
+## Prepared-environment checks (no downloads)
 
-`cargo` / `rustc` を PATH に置きます。Lean を elan 以外の場所に導入した場合、`FIXSEAL_LEAN_BIN` に Lean 4.34.1 の実体の bin ディレクトリを指定します。judge はこの信頼する toolchain を直接使い、自動ダウンロードする proxy にフォールバックしません。
+Put `cargo` / `rustc` on PATH. If Lean is installed outside elan, set `FIXSEAL_LEAN_BIN` to the real Lean 4.34.1 bin directory. The judge directly uses this trusted toolchain without fallback to downloading proxies.
 
 ```sh
 export FIXSEAL_LEAN_BIN="${FIXSEAL_LEAN_BIN:-$HOME/.elan/toolchains/leanprover--lean4---v4.34.1/bin}"
@@ -98,9 +98,9 @@ cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --test f
 cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --test local_demo
 ```
 
-最後のコマンドは summary 形式のテストを行い、チェーンデモ本体は opt-in です。ここまでは NEAR sandbox と wasm、localhost bind 権限が不要です。
+The final command checks summary format; chain execution is opt-in. These commands need no sandbox, wasm or localhost bind permission.
 
-全契約統合テストとチェーンデモは、追加資材と localhost の bind / listen 権限が必要です。外部通信禁止時は、Cargo の `--offline` に加え、実在するバイナリを必ず明示してください。指定しなければ `near-sandbox` crate が実行時ダウンロードを試みることがあります。
+All contract integration tests and chain demos require extra resources and localhost bind / listen permission. When external networking is prohibited, specify an existing sandbox binary in addition to Cargo `--offline`; otherwise the `near-sandbox` crate may attempt runtime downloads.
 
 ```sh
 export NEAR_SANDBOX_BIN_PATH="$HOME/.near/near-sandbox-2.11.0/near-sandbox"
@@ -109,4 +109,4 @@ cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --no-fai
 scripts/demo.sh
 ```
 
-`--check` は存在確認のみです。ソケット権限による停止をテスト成功として扱いません。実行ログは `demo-artifacts/demo-output.txt`、JSON は `demo-artifacts/*.json` に保存します。[path-5 のホスト成功記録](demo-output-host-path5.txt)と、[制限環境での状態](BLOCKED.md)を区別してください。
+`--check` checks presence only; socket-permission failures are not test passes. Logs go to `demo-artifacts/demo-output.txt`, JSON to `demo-artifacts/*.json`. Distinguish the [path-5 host success record](demo-output-host-path5.txt) from [restricted-environment status](BLOCKED.md).

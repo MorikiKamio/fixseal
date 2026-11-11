@@ -1,6 +1,6 @@
 # Recording the live split-screen take
 
-**Simulated environment, synthetic data** (仮想空間での検証): disposable testnet accounts, mock attestation, no real funds. One `guard_init` per contract, so each account gives exactly one take — record in one pass.
+**Simulated environment, synthetic data**: disposable testnet accounts, mock attestation, no real funds. One `guard_init` per contract, so each account gives exactly one take — record in one pass.
 
 ## Prepare (operator, off camera)
 

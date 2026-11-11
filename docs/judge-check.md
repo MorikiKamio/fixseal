@@ -3,7 +3,7 @@
 From the repository root, run `scripts/judge-check.sh --stage a` to inspect saved
 evidence without Rust, Lean or network access. Run `scripts/judge-check.sh` for
 all locally available stages. Nothing is installed, signed or submitted. All
-examples use a **simulated environment, synthetic data / 仮想空間での検証**.
+examples use a **simulated environment, synthetic data**.
 
 Each check prints one `PASS ID`, `FAIL ID`, or `SKIP(reason) ID` line, followed by
 a summary and elapsed time. Detailed stdout/stderr stays in a fresh ignored
@@ -54,7 +54,7 @@ generation/replay (default 120 seconds per Lean subprocess).
 
 Local macOS arm64, 2026-11-10, Rust/Cargo 1.99.1, Lean 4.34.1, existing dependency
 and build caches. These are wall-clock measurements, not cold-build or install
-estimates. All results are **仮想空間での検証 / simulated environment, synthetic data**.
+estimates. All results are **simulated environment, synthetic data**.
 
 | Check | Seconds | Observed result |
 | --- | ---: | --- |
@@ -114,7 +114,7 @@ The jobs fail on build/runtime/receipt errors; no skipped chain run is counted
 as success. CI provisioning uses external downloads when a future operator runs
 the workflow; none were performed here.
 
-**CI has not yet run on GitHub.** First public run URL: **<要記入>**. Local arm64
+**CI has not yet run on GitHub.** First public run URL: **<to be filled>**. Local arm64
 checks do not establish Linux or macOS CI success; no macOS CI job is configured.
 Current guard wasm and chain effects still need [T010 host checks](t010-host-check.md).
 The older FIX5 logs predate the guard. This script never signs, publishes or submits; with

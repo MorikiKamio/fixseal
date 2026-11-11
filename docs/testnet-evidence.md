@@ -9,7 +9,7 @@ The operator script copies this file to a fresh `demo-artifacts/testnet-guard/` 
 - Network: testnet
 - Judge-check contract account: `fixseal-guard.testnet`
 - Judge-check accepted record ID: `c3648c7670ef2095eed61998a699c09d4bc2f8054a81df03272fcdc406d9ffcb`
-- Environment: **simulated environment, synthetic data** / 仮想空間での検証
+- Environment: **simulated environment, synthetic data**
 - Rebuilt wasm SHA-256 and source/build provenance: pending
 - Judge: `0.1.0/lean-spend-4`
 - Fixed specification: `e3933e5161e3cbd034aa95cdf11659ffec4407c9697dbf405869d5a3fee5bebe`

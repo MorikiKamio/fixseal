@@ -1,6 +1,6 @@
 # Packaged evidence
 
-These are **simulated environment, synthetic data** / **仮想空間での検証**.
+These are **simulated environment, synthetic data**.
 The two honest bundles are the offline T010 outputs from 2026-11-10, using
 path-7 and spend-4. They contain source as byte arrays, the full report and its
 SHA-256. Neither contains a chain readback. They are curated copies of generated

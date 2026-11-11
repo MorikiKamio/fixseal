@@ -152,6 +152,6 @@ test("viewer serializes overlapping refreshes", async () => {
 });
 
 test("viewer keeps the simulation banner and avoids security certification claims", () => {
-  assert.match(html, /Simulated environment, synthetic data \(仮想空間での検証\)/);
+  assert.match(html, /Simulated environment, synthetic data · NEAR testnet · mock attestation · not a security certification/);
   assert.doesNotMatch(html, /verified secure|audited|proof of safety/i);
 });

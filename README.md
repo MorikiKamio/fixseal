@@ -26,7 +26,7 @@ flowchart LR
 
 ² 2026-11-11, during the demo recording: Codex wrote the fix in an answer-withheld copy, the judge accepted it on the first attempt, and the testnet guard installed exactly that rule and refused the same attack ([run](docs/testnet-live-run-2026-11-11.md)). One run; not a ranking.
 
-Author: **Moriki Kamio**. [Japanese](README.ja.md) · [Evaluation details](JUDGES.md) · [Agent instructions](AGENTS.md).
+Author: **Moriki Kamio**. [Evaluation details](JUDGES.md) · [Agent instructions](AGENTS.md).
 
 ## Why now
 
@@ -185,7 +185,7 @@ Sandboxed coding environments may fail with `Operation not permitted` while bind
 
 ## Testnet evidence
 
-2026-11-10, NEAR testnet, local/mock attestation, synthetic data (仮想空間での検証). Contract `fixseal-guard.testnet`, wasm SHA-256 `9fb00594…4c718` (same as the CI source build). The overflow attack paid out past the 1000 yoctoNEAR cap; replacement without a record and with a reject record failed; the accept-recorded fix was installed; the same attack was refused; a legitimate 100 yoctoNEAR spend went through. [All transactions, keys and final state](docs/testnet-run-2026-11-10.md). Read-only recheck: `scripts/judge-check.sh --stage a --allow-testnet-read`.
+2026-11-10, NEAR testnet, local/mock attestation, synthetic data. Contract `fixseal-guard.testnet`, wasm SHA-256 `9fb00594…4c718` (same as the CI source build). The overflow attack paid out past the 1000 yoctoNEAR cap; replacement without a record and with a reject record failed; the accept-recorded fix was installed; the same attack was refused; a legitimate 100 yoctoNEAR spend went through. [All transactions, keys and final state](docs/testnet-run-2026-11-10.md). Read-only recheck: `scripts/judge-check.sh --stage a --allow-testnet-read`.
 
 2026-11-11, live run recorded for the demo video: same 10 steps on `fixseal-live-2.testnet`, but the installed fix was written by Codex during the recording (accept on the first attempt, record `a52b5ab3…0535`). [All transactions and final state](docs/testnet-live-run-2026-11-11.md) · [view it](https://morikikamio.github.io/fixseal/?contract=fixseal-live-2.testnet).
 

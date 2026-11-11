@@ -1,6 +1,6 @@
 # Live AI fix + NEAR testnet guard run — 2026-11-11
 
-**Simulated environment, synthetic data** (仮想空間での検証): disposable testnet accounts, local/mock attestation, no real TEE and no real funds. This is the run recorded for the demo video. It is not a security certification.
+**Simulated environment, synthetic data**: disposable testnet accounts, local/mock attestation, no real TEE and no real funds. This is the run recorded for the demo video. It is not a security certification.
 
 What is different from the [2026-11-10 run](testnet-run-2026-11-10.md): the accepted fix was not prepared in advance. Codex wrote it during the recording in an answer-withheld copy (`scripts/live-fix.sh`), the judge accepted it on the first attempt, and the guard then installed exactly that rule.
 

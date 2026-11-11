@@ -6,56 +6,56 @@ Registration uses the predecessor account, requires storage deposit for a new re
 
 Use cached dependencies and `cargo test --manifest-path agent-contract/Cargo.toml --locked --offline --test fix_proof_tests` for the mock authorization tests. Sandbox integration needs supplied wasm, near-sandbox 2.11.0 and explicit localhost bind permission. The operator's [FIX5 record](demo-output-host-fix5.txt) covers ten versions on path-7/spend-3 with matched readbacks/replays and demo exit 0. All measurements describe a **simulated environment, synthetic data**. Real TEE, testnet and supplied wasm/source correspondence remain unconfirmed. Details and historical API notes follow.
 
-## Japanese reference
+## Detailed reference
 
-# T001 契約メモ
+# T001 contract notes
 
-更新: 2026-11-10（R2）
+Updated: 2026-11-10 (R2)
 
-## テンプレートの登録と認可
+## Template registration and authorization
 
-- `src/lib.rs::register_agent` は `env::predecessor_account_id()` を登録先にする。新規登録は `storage_byte_cost × 486 bytes` 以上の deposit が必要。再登録は既存レコードを更新するため、この deposit 判定はない。
-- `src/internal/attestation.rs::verify_attestation` は `requires_tee` で分岐する。TEE モードでは小文字 hexadecimal の implicit account を要求し、その account に結びつく report data、現在時刻、owner が承認した measurement と PPID を使って attestation を検証する。
-- local モードでは owner による `whitelist_agent_for_local` と、デフォルトの measurement / PPID の承認が必要。attestation はダミーであり、local は本物の TEE ではない。ホワイトリスト入りの後にも `register_agent` が必要。
-- 登録成功時は `agents` に measurement、PPID、`valid_until_ms = 現在のブロック時刻(ms) + 有効期間` を保存し、`AgentRegistered` を出す。
-- `src/internal/helpers.rs::require_valid_agent` は未登録なら `Agent not registered` で panic。登録済みでも、現在時刻が有効期限を超えている、measurement / PPID が承認解除されている、local ホワイトリストから外れている場合は無効とする。有効期限と現在時刻が同じなら有効。
-- 無効な登録は削除して `AgentRemoved` を出し、private な `fail_on_invalid_agent` を呼ぶ Promise を返す。呼出元がこの Promise を返すことで、削除を維持しつつ後続 receipt を失敗させる。`get_agent` / `get_agents` は同じ判定理由を表示するが、登録自体は削除しない。
-- 承認・解除・ホワイトリスト操作などは `require_owner` が predecessor と owner を照合する。登録されているだけでは、現在も有効とは限らない。
+- `src/lib.rs::register_agent` registers `env::predecessor_account_id()`. New registration requires deposit ≥ `storage_byte_cost × 486 bytes`; renewal updates the existing record without that deposit check.
+- `src/internal/attestation.rs::verify_attestation` branches on `requires_tee`. TEE mode requires a lowercase hexadecimal implicit account and checks attestation against account-bound report data, current time and owner-approved measurement / PPID.
+- Local mode requires owner `whitelist_agent_for_local` and approved default measurement / PPID. Attestation is dummy; local mode is not a real TEE. Whitelisting still requires `register_agent` afterward.
+- Registration stores measurement, PPID and `valid_until_ms = current block time (ms) + validity period` in `agents`, then emits `AgentRegistered`.
+- `src/internal/helpers.rs::require_valid_agent` panics with `Agent not registered` if absent. Existing registration becomes invalid after expiry, measurement / PPID revocation or local whitelist removal. Equality of expiry and current time remains valid.
+- Invalid registration is removed, `AgentRemoved` emitted, and a Promise calls private `fail_on_invalid_agent`. Returning that Promise preserves removal while failing a later receipt. `get_agent` / `get_agents` show the same validity reasons without deleting registration.
+- Approval, revocation and whitelist operations use `require_owner` to compare predecessor and owner. Registration alone does not establish current validity.
 
-## Fixseal の追加 API
+## Added Fixseal API
 
-`src/your_functions.rs` に追加。`request_signature` と既存の認可処理は変更していない。
+Added in `src/your_functions.rs`; `request_signature` and existing authorization are unchanged.
 
-| メソッド | 引数 | 挙動 |
+| Method | Arguments | Behavior |
 | --- | --- | --- |
-| `submit_fix_proof` | `bundle_hash: String`, `summary: String` | `require_valid_agent` を通った agent のみ保存。同じ文字列の hash は全 agent 共通で重複拒否。成功時の JSON 戻り値は `null`、登録後に無効になった agent には既存の失敗 Promise を返す。 |
-| `get_fix_proof` | `bundle_hash: String` | 未登録なら `null`、存在すれば記録を返す。認可不要の view。 |
-| `list_fix_proofs` | `from_index: Option<u32>`, `limit: Option<u32>` | 挿入順。省略 / `null` では先頭から全件。範囲外または limit がゼロなら空配列。認可不要の view。 |
+| `submit_fix_proof` | `bundle_hash: String`, `summary: String` | Stores only for agents passing `require_valid_agent`; duplicate hash strings reject across all agents. Success returns JSON `null`; agents invalidated after registration receive the existing failure Promise. |
+| `get_fix_proof` | `bundle_hash: String` | Public view returning the record or `null` when absent. |
+| `list_fix_proofs` | `from_index: Option<u32>`, `limit: Option<u32>` | Public view in insertion order. Omitted / `null` reads all from the beginning; out-of-range or zero limit returns an empty array. |
 
-記録は `bundle_hash`、`caller`、`block_timestamp_ms`、`summary`。caller は署名元の `signer_account_id` ではなく、直接呼び出した `predecessor_account_id`。時刻は契約が取得するミリ秒の `U64` で、JSON では文字列になる。view は agent の後日の失効後も記録を返す。
+Records contain `bundle_hash`, `caller`, `block_timestamp_ms`, `summary`. Caller is immediate `predecessor_account_id`, not `signer_account_id`. Contract-observed milliseconds use `U64`, serialized as a JSON string. Records remain visible after agent invalidation.
 
-local でもホワイトリストだけの書込みは許さず、テンプレートと同じ登録・有効性判定を要求する。`src/index.ts` の既存起動ループは whitelist 後に登録するため、この流れに一致する。
+Local writes require registration and validity checks, not just whitelisting. The existing `src/index.ts` startup loop whitelists then registers, matching this flow.
 
-証跡は `IterableMap<String, FixProof>` に保存する。専用キー `FIX_PROOFS` に map のメタデータ、既存 enum の末尾に追加した `StorageKey::FixProofs` に要素を保存し、書込み時に flush する。既存 `Contract` の Borsh 状態形式と既存 storage key の番号は維持する。テンプレートの更新テスト用 WASM が旧状態を読むため、この構成にした。更新処理の実動作は未検証。
+Records use `IterableMap<String, FixProof>`: map metadata under `FIX_PROOFS`, elements under appended enum variant `StorageKey::FixProofs`, flushed on writes. Existing `Contract` Borsh layout and storage-key numbers are preserved so template upgrade-test WASM can read old state. Upgrade execution was unconfirmed.
 
-SDK の永続コレクションは要素を遅延ロードし、`flush` では変更した要素を書き込む。`FIX_PROOFS` へ全記録を再保存する方式ではない。R2 の **仮想空間での検証**では、1・10・100件のどれでもメタデータは16バイトで、最初と最後の記録の参照・挿入順も確認した。実チェーンの gas を測定した結果ではない。
+SDK persistent collections load elements lazily and `flush` writes changed elements, without rewriting all records under `FIX_PROOFS`. R2 **simulated environment, synthetic data** checks found 16-byte metadata at 1, 10 and 100 records, with first/last reads and insertion order intact. This is not real-chain gas measurement.
 
-この関数は non-payable。記録のストレージ費用は契約残高が負担する。文字列長・総件数の上限や費用回収はなく、登録済み agent による容量消費を制限しないデモ用 API である。hash は渡された文字列をそのまま扱い、形式・正規化、バンドルの内容、署名、攻撃結果の照合は T001 では行わない。これらは後続のパイプライン / verify CLI の作業。
+This non-payable demo API charges record storage to contract funds. String length, record count and registered-agent capacity use are uncapped; no cost recovery exists. T001 treats hashes as raw strings without format/normalization, bundle, signature or attack-result checks; those belong to later pipeline / verify work.
 
-## 検証状況
+## Validation status
 
-`tests/fix_proof_tests.rs` は以下の 11 テスト。NEAR SDK の mocked VM を使う**仮想空間での検証**用で、R2 で全11件成功。実 TEE、NEAR testnet、sandbox の receipt 実行を検証した結果ではない。
+`tests/fix_proof_tests.rs` contains these 11 tests using the NEAR SDK mocked VM: **simulated environment, synthetic data**. All 11 passed in R2; they do not establish real TEE, NEAR testnet or sandbox receipt execution.
 
-- 登録済み agent の成功、caller・時刻・summary・JSON 時刻の確認。
-- 未登録の拒否。
-- local ホワイトリストだけで未登録の呼出しの拒否。
-- 別の登録済み agent による同一 hash の上書き拒否と元の記録の維持。
-- 未存在の参照、挿入順、ページング、範囲外、limit ゼロ。
-- 状態の保存・再読込み後の参照。
-- 100件までの記録追加でメタデータの長さが一定で、記録の参照・挿入順が維持されること。
-- 有効期限切れの agent の拒否と登録削除。
-- measurement 承認解除後の拒否と登録削除。
-- PPID 承認解除後の拒否と登録削除。
-- local ホワイトリスト解除後の拒否と登録削除。
+- Registered-agent success, caller, time, summary and JSON time.
+- Unregistered-agent rejection.
+- Rejection of local-whitelisted but unregistered callers.
+- Duplicate hash rejection across registered agents while preserving the original record.
+- Missing reads, insertion order, pagination, out-of-range and zero limit.
+- Reads after state serialization/reload.
+- Constant metadata size and intact reads/order through 100 records.
+- Expired-agent rejection and registration removal.
+- Measurement revocation rejection and removal.
+- PPID revocation rejection and removal.
+- Local whitelist revocation rejection and removal.
 
-R1 では既存キャッシュを使い、契約単体51件・fix_proof10件・summary形式1件が成功。全契約テストの sandbox 使用9件は localhost bind の EPERM で失敗。運用者の R1 修正前のホストデモは全5版で記録・読み戻し・verify が成功している（[記録](demo-output-host.txt)）。無効 agent の Promise の最終的な receipt 失敗も新規テストでは実行しない。[BLOCKED.md](BLOCKED.md) に再開手順を記載する。
+R1 used existing caches: 51 contract unit, 10 fix_proof and 1 summary-format tests passed. All 9 sandbox contract tests failed at localhost bind with EPERM. The operator's pre-R1 host demo recorded/read/replayed all 5 versions ([record](demo-output-host.txt)). New tests also do not execute the final failing receipt of an invalid-agent Promise. See [BLOCKED.md](BLOCKED.md) for resumption steps.
