@@ -94,6 +94,11 @@ if [ "$stage" != a ]; then
         for id in B1 B2 B3; do skip "$id" 'Rust/Cargo missing; provide Rust 1.99.1 and locked caches'; done
       fi
       check B5 'NEAR AI fixer offline tool tests (no API or sockets)' python3 fixers/nearai/test_run_fixer.py
+      if command -v node >/dev/null; then
+        check B6 'viewer policy evaluator vs Rust vectors (node --test)' node --test viewer/
+      else
+        skip B6 'node unavailable; viewer policy evaluator test not run'
+      fi
       skip B4 'live sandbox is separate: scripts/demo.sh; requires rebuilt wasm and loopback permission'
     fi
     if [ "$stage" = all ] || [ "$stage" = c ]; then

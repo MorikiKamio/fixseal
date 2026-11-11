@@ -124,7 +124,7 @@ class RunnerTests(unittest.TestCase):
             result = subprocess.run(["/bin/bash", str(ROOT / "scripts/judge-check.sh")],
                                     env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("PASS=3 FAIL=0 SKIP=10", result.stdout)
+            self.assertIn("PASS=3 FAIL=0 SKIP=11", result.stdout)
             self.assertIn("elan toolchain install leanprover/lean4:v4.34.1", result.stdout)
 
     def test_docker_never_builds_pulls_or_enables_network(self):

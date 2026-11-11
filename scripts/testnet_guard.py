@@ -5,12 +5,14 @@ import base64
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -74,6 +76,14 @@ class Testnet:
         if mode not in ("keychain", "legacy-keychain"):
             raise RuntimeError("FIXSEAL_TESTNET_SIGN_WITH must be keychain or legacy-keychain")
         self.sign_with = "sign-with-" + mode
+        try:
+            self.step_pause = float(os.environ.get("FIXSEAL_TESTNET_STEP_PAUSE", "0"))
+        except ValueError:
+            raise RuntimeError("FIXSEAL_TESTNET_STEP_PAUSE must be a nonnegative number of seconds")
+        if not math.isfinite(self.step_pause) or self.step_pause < 0:
+            raise RuntimeError("FIXSEAL_TESTNET_STEP_PAUSE must be a nonnegative number of seconds")
+        self.step = 0
+        self.steps = 10
 
     def rpc(self, method, params):
         request = urllib.request.Request(self.rpc_url, data=encoded({
@@ -96,7 +106,10 @@ class Testnet:
     def balance(self):
         return int(self.query("view_account", account_id=self.recipient)["amount"])
 
-    def call(self, label, method, args, role="OWNER", expected_error=None):
+    def call(self, label, method, args, role="OWNER", expected_error=None, note=None):
+        if self.step:
+            time.sleep(self.step_pause)
+        self.step += 1
         signer = self.owner if role == "OWNER" else self.agent
         command = ["near", "contract", "call-function", "as-transaction", self.contract, method,
                    "json-args", encoded(args), "prepaid-gas", "100 Tgas", "attached-deposit",
@@ -114,7 +127,8 @@ class Testnet:
             raise RuntimeError("CLI reported failure; transaction hash retained for inspection")
         with self.evidence.open("a") as out:
             out.write(f"| {label} final | `{tx_hash}` | {'expected rejection' if expected_error else 'success'} |\n")
-        print(f"{label}: {'rejected as expected' if expected_error else 'final receipts passed'}; tx={tx_hash}")
+        outcome = note or (f"refused: {expected_error}" if expected_error else "done")
+        print(f"[{self.step}/{self.steps}] {label} … {outcome}; tx={tx_hash}")
 
     def preflight(self):
         if self.rpc("status", {})["chain_id"] != "testnet":
@@ -141,26 +155,30 @@ class Testnet:
     def run(self, bundles):
         self.preflight()
         baseline = bundles["before"]["report"]
-        self.call("initialize vulnerable policy", "guard_init", {
+        self.call("Initialize the vulnerable rule (cap 1000)", "guard_init", {
             "limit": "1000", "spec_sha256": SPEC, "policy_expr": baseline["policy_expr"]})
         balance = self.balance()
-        for amount in ["600", ATTACK]:
-            self.call(f"vulnerable spend {amount}", "guard_spend", {
-                "to": self.recipient, "amount": amount}, role="SPEND")
+        self.call("Spend 600", "guard_spend", {"to": self.recipient, "amount": "600"},
+                  role="SPEND", note="PAID")
+        self.call(f"Overflow attack: spend {ATTACK}", "guard_spend", {
+            "to": self.recipient, "amount": ATTACK}, role="SPEND", note="PAID (the bug)")
         before = self.view("guard_state")
         if int(before["total_paid"]) != 2**64 + 100 or before["spent"] != "100" or before["pending_paid"] != "0":
             raise RuntimeError("Overflow accounting did not match the demo")
         if self.balance() - balance != int(before["total_paid"]):
             raise RuntimeError("Recipient balance did not match actual payments")
-        self.call("replacement without record", "guard_set_policy", {
+        self.call("Replace the rule without a record", "guard_set_policy", {
             "policy_expr": bundles["after_saturate"]["report"]["policy_expr"], "record_id": "missing"},
             expected_error="Guard record missing")
+        names = {"after_saturate": ("saturating fix", "reject"),
+                 "after_honest": ("accepted fix", "accept")}
         for version in ["after_saturate", "after_honest"]:
             evidence = bundles[version]
             report = evidence["report"]
             record_id = evidence["report_sha256"]
-            self.call(f"submit {version}", "submit_fix_proof", {
-                "bundle_hash": record_id, "summary": summary(report)}, role="AGENT")
+            name, verdict = names[version]
+            self.call(f"Record the {name} (judge: {verdict})", "submit_fix_proof", {
+                "bundle_hash": record_id, "summary": summary(report)}, role="AGENT", note="recorded")
             record = self.view("get_fix_proof", {"bundle_hash": record_id})
             if record["summary"] != summary(report) or record["bundle_hash"] != record_id or record["caller"] != self.agent:
                 raise RuntimeError("Chain readback mismatch")
@@ -168,15 +186,17 @@ class Testnet:
             path = self.output / f"{version}.json"
             path.write_text(encoded(evidence))
             judge(["verify", str(path)])
-            self.call(f"install {version}", "guard_set_policy", {
+            self.call(f"Install the {name}", "guard_set_policy", {
                 "policy_expr": report["policy_expr"], "record_id": record_id},
-                expected_error="Guard record is not accept" if version == "after_saturate" else None)
+                expected_error="Guard record is not accept" if version == "after_saturate" else None,
+                note=None if version == "after_saturate" else "installed")
         balance = self.balance()
-        self.call("replay overflow attack", "guard_spend", {"to": self.recipient, "amount": ATTACK},
+        self.call("Replay the same overflow attack", "guard_spend", {"to": self.recipient, "amount": ATTACK},
                   role="SPEND", expected_error="Guard spending denied")
         if self.balance() != balance or self.view("guard_state")["total_paid"] != before["total_paid"]:
             raise RuntimeError("Rejected attack changed payment state")
-        self.call("legitimate spend", "guard_spend", {"to": self.recipient, "amount": "100"}, role="SPEND")
+        self.call("Legitimate spend 100", "guard_spend", {"to": self.recipient, "amount": "100"},
+                  role="SPEND", note="paid")
         after = self.view("guard_state")
         expected_hash = bundles["after_honest"]["report"]["policy_expr_sha256"]
         if (int(after["total_paid"]) != int(before["total_paid"]) + 100
@@ -198,11 +218,28 @@ def judge(args):
     return run.stdout
 
 
+def load_accepted_bundle(path):
+    """Use a freshly judged accept bundle (e.g. scripts/live-fix.sh output) as the installed fix."""
+    evidence = json.loads(Path(path).read_text())
+    report = evidence["report"]
+    if evidence.get("format") != "fixseal-bundle-v1" or evidence["input"].get("subject") != "spend":
+        raise RuntimeError("Accepted bundle must be a spend bundle")
+    if report["judge_version"] != JUDGE or report["proof"]["approved_spec_sha256"] != SPEC:
+        raise RuntimeError("Unexpected judge or specification")
+    if report["verdict"] != "accept" or report["reason_codes"] or not report["proof"]["verified"]:
+        raise RuntimeError("Supplied bundle is not a kernel-checked accept")
+    if hashlib.sha256(report["policy_expr"].encode()).hexdigest() != report["policy_expr_sha256"]:
+        raise RuntimeError("Policy expression hash mismatch")
+    return evidence
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true", help="operator-authorized testnet transactions")
     parser.add_argument("--check", action="store_true", help="local file/tool checks only (default)")
     parser.add_argument("--output", default=str(ROOT / "demo-artifacts/testnet-guard"))
+    parser.add_argument("--accepted-bundle",
+                        help="record and install this verified accept bundle instead of the fixed after_honest")
     args = parser.parse_args()
     if args.execute and args.check:
         parser.error("choose --check or --execute")
@@ -221,7 +258,8 @@ def main():
     template = template.replace("Run date: pending operator run", "Run date: " + datetime.now(timezone.utc).isoformat())
     operator.evidence.write_text(template + f"\nContract: `{operator.contract}`; recipient: `{operator.recipient}`\n\n| Step | Transaction hash | Outcome |\n| --- | --- | --- |\n")
     bundles = {}
-    for version in ["before", "after_saturate", "after_honest"]:
+    generated = ["before", "after_saturate"] + ([] if args.accepted_bundle else ["after_honest"])
+    for version in generated:
         evidence = json.loads(judge(["bundle", "--lean", "--subject", "spend", str(ROOT / "lean"), version]))
         report = evidence["report"]
         if report["judge_version"] != JUDGE or report["proof"]["approved_spec_sha256"] != SPEC:
@@ -236,6 +274,12 @@ def main():
         path.write_text(encoded(evidence))
         judge(["verify", str(path)])
         bundles[version] = evidence
+    if args.accepted_bundle:
+        evidence = load_accepted_bundle(args.accepted_bundle)
+        judge(["verify", args.accepted_bundle])
+        path = output / "after_honest.json"
+        path.write_text(encoded(evidence))
+        bundles["after_honest"] = evidence
     operator.run(bundles)
 
 

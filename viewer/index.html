@@ -39,6 +39,9 @@ p { margin: 6px 0; }
   font-size: 13px; margin-top: 12px; }
 button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+input { font: inherit; font-family: var(--mono); font-size: 13px; padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  width: min(100%, 20em); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
 .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -46,6 +49,8 @@ button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; 
 .note { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
 .rule { font-family: var(--mono); font-size: 15px; background: var(--code-bg); border-radius: 6px;
   padding: 8px 10px; margin-top: 6px; overflow-wrap: anywhere; }
+.rule-json { font-family: var(--mono); font-size: 11.5px; color: var(--muted); background: var(--code-bg);
+  border-radius: 6px; padding: 6px 10px; margin-top: 6px; overflow-wrap: anywhere; }
 code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
 .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .checks li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
@@ -60,6 +65,14 @@ th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--lin
 th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 tr:last-child td { border-bottom: 0; }
 .err { color: var(--bad); font-size: 13px; }
+.feed { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; font-size: 13px; }
+.feed li { border-left: 3px solid var(--accent); padding: 1px 8px; }
+.feed li .t { color: var(--muted); font-family: var(--mono); font-size: 11.5px; margin-right: 6px; }
+.try { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-top: 8px; }
+.try label { font-size: 13px; color: var(--muted); display: grid; gap: 3px; }
+.verdict { font-size: 16px; font-weight: 600; margin-top: 8px; }
+@keyframes flashbg { from { background: var(--warn-bg); } to { background: transparent; } }
+.flash { animation: flashbg 1.4s; border-radius: 4px; }
 footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
 </style>
 </head>
@@ -72,21 +85,63 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
   <div class="banner">Simulated environment, synthetic data (仮想空間での検証) · NEAR testnet · mock attestation · not a security certification</div>
   <div class="bar">
     <span>Contract <a id="contract-link" href="https://testnet.nearblocks.io/address/fixseal-guard.testnet" target="_blank" rel="noopener"><code>fixseal-guard.testnet</code></a></span>
+    <span>Agent <a id="agent-link" href="https://testnet.nearblocks.io/address/fixseal-agent.testnet" target="_blank" rel="noopener"><code>fixseal-agent.testnet</code></a></span>
     <span id="status">Loading…</span>
     <button id="refresh" type="button">Refresh</button>
+    <span id="live-tag" class="pill wait" hidden>live</span>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="label">Activity</div>
+    <ul class="feed" id="feed"><li class="note">Waiting for state changes…</li></ul>
+    <div class="note">Refusals (failed transactions) do not change on-chain state; they are visible in the terminal output and the explorer.</div>
   </div>
 
   <h2>Live state</h2>
   <div class="grid">
     <div class="card"><div class="label">Spending cap</div><div class="value" id="limit">–</div><div class="note">yoctoNEAR</div></div>
-    <div class="card"><div class="label">Spent counter</div><div class="value" id="spent">–</div><div class="note">Wrapped by the overflow attack, then +100 legitimate</div></div>
-    <div class="card"><div class="label">Total actually paid</div><div class="value" id="total">–</div><div class="note">Far above the cap: the attack paid before the fix</div></div>
+    <div class="card"><div class="label">Spent counter</div><div class="value" id="spent">–</div><div class="note" id="spent-note">u64 counter used by the current rule</div></div>
+    <div class="card"><div class="label">Total actually paid</div><div class="value" id="total">–</div><div class="note" id="total-note">Cumulative yoctoNEAR transferred by guard_spend</div></div>
   </div>
-  <div class="card" style="margin-top:12px">
+  <div class="card" style="margin-top:12px" id="rule-card">
     <div class="label">Rule in force now</div>
     <div class="rule" id="rule-now">–</div>
-    <div class="note">Installed from record <code id="rule-record">–</code></div>
+    <div class="note" id="rule-note">Installed from record <code id="rule-record">–</code></div>
   </div>
+
+  <h2>Try an amount</h2>
+  <div class="card">
+    <div class="try">
+      <label>Amount (u64)<input id="try-amount" inputmode="numeric" value="100"></label>
+      <label>Spent so far<input id="try-spent" inputmode="numeric" placeholder="from live state"></label>
+      <label>Cap <span class="mono" id="try-limit">–</span></label>
+    </div>
+    <div class="bar">
+      <span>Quick:</span>
+      <button type="button" data-amt="100">100</button>
+      <button type="button" data-amt="600">600</button>
+      <button type="button" data-amt="18446744073709551116" data-spent="600">The attack: spend 18446744073709551116 after 600</button>
+    </div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card">
+      <div class="label">Vulnerable rule (as deployed)</div>
+      <div class="rule">spent + amount ≤ limit</div>
+      <div class="rule-json" id="try-vuln-json"></div>
+      <div class="note">SHA-256 <code id="try-vuln-hash">–</code> <span id="try-vuln-match"></span></div>
+      <div class="verdict" id="try-vuln-verdict">–</div>
+      <div class="note mono" id="try-vuln-trace"></div>
+    </div>
+    <div class="card">
+      <div class="label">Rule in force now</div>
+      <div class="rule" id="try-now-rule">–</div>
+      <div class="rule-json" id="try-now-json"></div>
+      <div class="note">SHA-256 <code id="try-now-hash">–</code></div>
+      <div class="verdict" id="try-now-verdict">–</div>
+      <div class="note mono" id="try-now-trace"></div>
+    </div>
+  </div>
+  <p class="note">Computed in your browser from the rule stored on chain. Nothing is sent.</p>
 
   <h2>Checks this page runs in your browser</h2>
   <ul class="checks" id="checks"></ul>
@@ -106,12 +161,14 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
     <tbody id="history"><tr><td colspan="4" class="note">Loading…</td></tr></tbody>
   </table></div>
 
+  <div id="run-section">
   <h2>Recorded run, 2026-11-10 (UTC)</h2>
-  <p class="note">The scripted run that produced the state above. Each outcome was checked from final receipts. Links open the public explorer.</p>
+  <p class="note">Saved run for the default contract; the live state above may have changed. Each outcome was checked from final receipts. Links open the public explorer.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>#</th><th>Step</th><th>Outcome</th><th>Tx</th></tr></thead>
     <tbody id="run"></tbody>
   </table></div>
+  </div>
 
   <h2>Limits</h2>
   <p>The contract trusts the record submitter (the registered agent) and the owner; it does not run Lean. Attestation is mock.
@@ -121,15 +178,19 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
   <footer>
     Check it yourself: <code>scripts/judge-check.sh --stage a --allow-testnet-read</code> ·
     <a href="https://github.com/MorikiKamio/fixseal">github.com/MorikiKamio/fixseal</a> ·
-    Built at NEAR HACKATHON 2026. Independent of NEAR AI.
+    Built at NEAR HACKATHON 2026 by Moriki Kamio. Independent of NEAR AI.
   </footer>
 </main>
 
+<script src="policy.js"></script>
 <script>
-const RPC = "https://rpc.testnet.near.org";
-const CONTRACT = "fixseal-guard.testnet";
-const AGENT = "fixseal-agent.testnet";
-const SPEND_KEY = "ed25519:7EdXbephz5fZrYvBbr6t5mwoPNUZxik1L3fGPNT1PCvQ";
+// Public testnet RPCs (both allow browser CORS). The first that answers is used; near.org rate-limits busy clients.
+const RPCS = ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"];
+let rpcIndex = 0;
+const DEFAULT_CONTRACT = "fixseal-guard.testnet";
+const DEFAULT_AGENT = "fixseal-agent.testnet";
+const ACCOUNT_RE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const validAccount = (id) => id.length >= 2 && id.length <= 64 && id === id.trim() && ACCOUNT_RE.test(id);
 // Values published in the repository (docs/testnet-run-2026-11-10.md, CI build).
 const EXPECTED = {
   wasm: "9fb005949b916925053a0d0781b193e7f4ab74aebcd6761eb730145de9f4c718",
@@ -151,23 +212,44 @@ const RUN = [
   ["Legitimate spend 100", "paid", "ok", "GJPsKCjNjYuWwWvFX6HYhyLmh9cTioVkeGsAoExgxZeN"],
 ];
 
+const params = new URLSearchParams(location.search);
+const CONTRACT = params.get("contract") ?? DEFAULT_CONTRACT;
+const AGENT = params.get("agent") ?? DEFAULT_AGENT;
+const LIVE = params.get("live") === "1";
+const isDefault = CONTRACT === DEFAULT_CONTRACT;
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const short = (h) => (h && h.length > 16 ? h.slice(0, 8) + "…" + h.slice(-4) : h || "–");
 const num = (s) => BigInt(s).toLocaleString("en-US");
 const when = (ms) => new Date(Number(ms)).toISOString().replace("T", " ").slice(0, 19) + " UTC";
 
-async function rpc(params) {
-  const res = await fetch(RPC, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: "fixseal-viewer", method: "query", params: { finality: "final", ...params } }) });
-  const body = await res.json();
-  if (body.error || !body.result || body.result.error) throw new Error(JSON.stringify(body.error || body.result.error));
-  return body.result;
+async function rpc(params, blockId) {
+  const payload = JSON.stringify({ jsonrpc: "2.0", id: "fixseal-viewer", method: "query",
+    params: { ...(blockId ? { block_id: blockId } : { finality: "final" }), ...params } });
+  let lastErr;
+  for (let tries = 0; tries < RPCS.length; tries++) {
+    const url = RPCS[(rpcIndex + tries) % RPCS.length];
+    let body;
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+      if (res.ok === false) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`);
+      body = await res.json();
+    } catch (e) {
+      lastErr = e;
+      continue; // transport or rate-limit failure: try the next RPC
+    }
+    rpcIndex = (rpcIndex + tries) % RPCS.length;
+    // A query error (e.g. unknown account) is an answer, not an outage: do not retry elsewhere.
+    if (body.error || !body.result || body.result.error) throw new Error(JSON.stringify(body.error || body.result.error));
+    return body.result;
+  }
+  throw lastErr || new Error("no RPC reachable");
 }
-async function view(method, args = {}) {
+async function view(method, args = {}, blockId) {
   const r = await rpc({ request_type: "call_function", account_id: CONTRACT, method_name: method,
-    args_base64: btoa(JSON.stringify(args)) });
-  return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))), height: r.block_height };
+    args_base64: btoa(JSON.stringify(args)) }, blockId);
+  return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))), height: r.block_height, hash: r.block_hash };
 }
 async function sha256hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -181,31 +263,191 @@ function base58hex(s) {
 }
 
 // Render the rule's JSON expression as readable math.
-const PREC = { or: 1, and: 2, le: 3, lt: 3, add: 4, sub: 4 };
-function fmt(e, parent = 0) {
-  const a = e.args;
-  let s, p = PREC[e.op] || 9;
-  switch (e.op) {
-    case "amount": case "limit": case "spent": return e.op;
-    case "const": return a === "18446744073709551615" ? "U64_MAX" : String(a);
-    case "and": s = a.map((x) => fmt(x, p)).join(" ∧ "); break;
-    case "or": s = a.map((x) => fmt(x, p)).join(" ∨ "); break;
-    case "le": s = `${fmt(a[0], p)} ≤ ${fmt(a[1], p)}`; break;
-    case "lt": s = `${fmt(a[0], p)} < ${fmt(a[1], p)}`; break;
-    case "add": s = `${fmt(a[0], p)} + ${fmt(a[1], p)}`; break;
-    case "sub": s = `${fmt(a[0], p)} − ${fmt(a[1], p + 1)}`; break;
-    case "not": return `¬(${fmt(a[0] ?? a)})`;
-    case "if": return `(if ${fmt(a[0])} then ${fmt(a[1])} else ${fmt(a[2])})`;
-    default: return JSON.stringify(e);
-  }
-  return p < parent ? `(${s})` : s;
-}
-function rule(exprText) { try { return fmt(JSON.parse(exprText)); } catch { return exprText; } }
+const rule = (exprText) => { try { return PolicyExpr.fmt(PolicyExpr.parse(exprText)); } catch { return exprText; } };
 
 function check(ok, title, detail) {
   const cls = ok === null ? "wait" : ok ? "pass" : "fail";
   const word = ok === null ? "n/a" : ok ? "PASS" : "FAIL";
   return `<li><span class="pill ${cls}">${word}</span><div><strong>${esc(title)}</strong><div class="note">${detail}</div></div></li>`;
+}
+
+function feed(text) {
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="t">${new Date().toLocaleTimeString()}</span>${esc(text)}`;
+  const list = $("feed");
+  if (list.firstElementChild && list.firstElementChild.classList.contains("note")) list.innerHTML = "";
+  list.prepend(li);
+  while (list.children.length > 30) list.lastElementChild.remove();
+}
+function flash(id) {
+  const el = $(id);
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+function setValue(id, text) {
+  const el = $(id);
+  if (el.textContent !== text) { el.textContent = text; flash(id); }
+}
+
+let prev = null;
+function diff(prev, s, records, hist) {
+  if (!prev) return;
+  if (!prev.state && s) feed(`Guard initialized (cap ${num(s.limit)})`);
+  if (prev.state && s) {
+    const paid = BigInt(s.total_paid) - BigInt(prev.state.total_paid);
+    if (paid > 0n) feed(`Total paid increased by ${num(paid.toString())}${BigInt(s.total_paid) > BigInt(s.limit) ? ` — cumulative total ${num(s.total_paid)} exceeds cap ${num(s.limit)}` : ""}`);
+    if (s.spent !== prev.state.spent) feed(`Spent counter ${num(s.spent)}`);
+  }
+  const known = new Set(prev.records.map((r) => r.bundle_hash));
+  for (const r of records) if (!known.has(r.bundle_hash)) feed(`Judge record added: ${r.s.verdict}`);
+  for (const h of hist.slice(prev.history)) {
+    feed(`Rule replaced (record ${h.record_id.slice(0, 8)}…)`);
+  }
+}
+
+function evaluate() {
+  const amountText = $("try-amount").value.trim();
+  const spentText = $("try-spent").value.trim();
+  const state = prev && prev.state;
+  $("try-limit").textContent = state ? num(state.limit) : "–";
+  const show = (prefix, exprText, vId, tId) => {
+    if (!exprText || !state) { $(vId).textContent = "waiting for guard_init"; $(tId).textContent = ""; return; }
+    try {
+      const expr = PolicyExpr.parse(exprText);
+      const amount = PolicyExpr.u64(amountText);
+      const spent = PolicyExpr.u64(spentText);
+      const limit = PolicyExpr.u64(state.limit);
+      const ok = PolicyExpr.eval(expr, limit, spent, amount);
+      $(vId).innerHTML = `${prefix} <strong>${ok ? "would pay" : "would refuse"}</strong>`;
+      $(tId).textContent = PolicyExpr.trace(expr, limit, spent, amount).join("\n");
+      $(tId).style.whiteSpace = "pre-line";
+    } catch (e) {
+      $(vId).innerHTML = `${prefix} <span class="err">${esc(e.message)}</span>`;
+      $(tId).textContent = "";
+    }
+  };
+  show("", PolicyExpr.VULNERABLE, "try-vuln-verdict", "try-vuln-trace");
+  show("", state && state.policy_expr, "try-now-verdict", "try-now-trace");
+}
+
+let loading = false;
+async function load() {
+  if (loading) return;
+  loading = true;
+  if (!prev) $("status").textContent = "Reading testnet…";
+  try {
+    const st = await view("guard_state");
+    const [hist, recs, acct, keys] = await Promise.all([
+      view("guard_history", {}, st.hash), view("list_fix_proofs", {}, st.hash),
+      rpc({ request_type: "view_account", account_id: CONTRACT }, st.hash),
+      rpc({ request_type: "view_access_key_list", account_id: AGENT }, st.hash),
+    ]);
+    if (prev && st.height < prev.height) {
+      $("status").textContent = `Final block ${prev.height.toLocaleString("en-US")} · older RPC response ignored`;
+      return;
+    }
+    const s = st.value;
+    const records = recs.value.map((r) => ({ ...r, s: JSON.parse(r.summary) }));
+
+    if (s) {
+      setValue("limit", num(s.limit));
+      setValue("spent", num(s.spent));
+      setValue("total", num(s.total_paid));
+      setValue("rule-now", rule(s.policy_expr));
+      $("rule-note").innerHTML = s.record_id
+        ? `Installed from record <code>${esc(short(s.record_id))}</code>`
+        : "Initial rule from guard_init; no accept record";
+      if (!$("try-spent").dataset.dirty) $("try-spent").value = s.spent;
+      $("try-now-rule").textContent = rule(s.policy_expr);
+      $("try-now-json").textContent = s.policy_expr;
+      $("try-now-hash").textContent = short(s.policy_expr_sha256);
+    } else {
+      for (const id of ["limit", "spent", "total"]) $(id).textContent = "–";
+      $("rule-now").textContent = "Guard not initialized yet";
+      $("rule-note").textContent = "guard_init has not run on this contract";
+      $("try-now-rule").textContent = "–";
+      $("try-now-json").textContent = "";
+      $("try-now-hash").textContent = "–";
+    }
+
+    const active = s && records.find((r) => r.bundle_hash === s.record_id);
+    const exprHash = s ? await sha256hex(s.policy_expr) : null;
+    const codeHex = base58hex(acct.code_hash);
+    const spendKey = keys.keys.find((k) => {
+      const fc = k.access_key.permission && k.access_key.permission.FunctionCall;
+      return fc && fc.receiver_id === CONTRACT && JSON.stringify(fc.method_names) === '["guard_spend"]';
+    });
+    const fc = spendKey && spendKey.access_key.permission.FunctionCall;
+    const keyOk = !!fc;
+    const vulnHash = await sha256hex(PolicyExpr.VULNERABLE);
+    $("try-vuln-json").textContent = PolicyExpr.VULNERABLE;
+    $("try-vuln-hash").textContent = short(vulnHash);
+    const lastChange = hist.value[hist.value.length - 1];
+    if (lastChange) {
+      const same = lastChange.previous_policy_expr_sha256 === vulnHash;
+      $("try-vuln-match").innerHTML = ` <span class="pill ${same ? "pass" : "fail"}">${same ? "matches" : "MISMATCH"}</span>` +
+        ` <span class="note">previous rule hash in the latest rule change</span>`;
+    } else {
+      $("try-vuln-match").innerHTML = ` <span class="pill wait">n/a</span> <span class="note">no rule change recorded yet</span>`;
+    }
+
+    const items = [
+      check(codeHex === EXPECTED.wasm, "Deployed code is the CI source build",
+        `on-chain code hash <code>${esc(short(codeHex))}</code> vs published wasm SHA-256 <code>${esc(short(EXPECTED.wasm))}</code>`),
+    ];
+    if (s) {
+      items.push(
+        check(exprHash === s.policy_expr_sha256, "Rule in force hashes to the contract-stated value",
+          `SHA-256 computed here <code>${esc(short(exprHash))}</code>; contract says <code>${esc(short(s.policy_expr_sha256))}</code>`),
+        check(!!active && active.s.verdict === "accept" && active.s.policy_expr === s.policy_expr,
+          "Rule came from an accept record",
+          active ? `record <code>${esc(short(active.bundle_hash))}</code>: verdict <strong>${esc(active.s.verdict)}</strong>, judge ${esc(active.s.judge_version)}, same rule text` : "record not found"),
+        check(s.spec_sha256 === EXPECTED.spec && (!active || active.s.spec_sha256 === s.spec_sha256),
+          "Same fixed specification", `spec SHA-256 <code>${esc(short(s.spec_sha256))}</code>`),
+        isDefault
+          ? check(s.record_id === EXPECTED.record, "Record matches the repository evidence",
+              `expected <code>${esc(short(EXPECTED.record))}</code>`)
+          : check(null, "Record matches the repository evidence", "only the default contract is checked"),
+        isDefault
+          ? check(exprHash === EXPECTED.policy, "Policy hash matches the repository evidence",
+              `expected <code>${esc(short(EXPECTED.policy))}</code>`)
+          : check(null, "Policy hash matches the repository evidence", "only the default contract is checked"),
+      );
+    } else {
+      items.push(check(null, "Guard not initialized yet", "state checks run after guard_init"));
+    }
+    items.push(check(keyOk, "Agent key can only call guard_spend",
+      fc ? `<code>${esc(spendKey.public_key)}</code>: receiver <code>${esc(fc.receiver_id)}</code>, methods <code>${esc(fc.method_names.join(", "))}</code>` : "no key limited to guard_spend on this contract"));
+    $("checks").innerHTML = items.join("");
+
+    $("key-card").innerHTML = spendKey
+      ? `<div class="label">${esc(AGENT)}</div><div class="mono" style="margin:4px 0">${esc(spendKey.public_key)}</div>` +
+        `<div>Permission: <strong>FunctionCall</strong>` +
+        ` · receiver <code>${esc(fc.receiver_id)}</code> · methods <code>${esc(fc.method_names.join(", "))}</code>` + `</div>` +
+        `<div class="note">It cannot call guard_set_policy, transfer, or touch any other contract.</div>`
+      : `<span class="err">No key limited to guard_spend on ${esc(CONTRACT)} found on ${esc(AGENT)}</span>`;
+
+    $("records").innerHTML = records.map((r) =>
+      `<tr><td><span class="pill ${r.s.verdict === "accept" ? "pass" : "fail"}">${esc(r.s.verdict)}</span></td>` +
+      `<td><code>${esc(rule(r.s.policy_expr))}</code></td><td class="mono">${esc(short(r.bundle_hash))}</td>` +
+      `<td>${when(r.block_timestamp_ms)}<div class="note">by ${esc(r.caller)}</div></td></tr>`).join("") ||
+      `<tr><td colspan="4" class="note">No records</td></tr>`;
+
+    $("history").innerHTML = hist.value.map((h) =>
+      `<tr><td>${when(h.block_timestamp_ms)}</td><td class="mono">${esc(short(h.previous_policy_expr_sha256))}</td>` +
+      `<td class="mono">${esc(short(h.policy_expr_sha256))}</td><td class="mono">${esc(short(h.record_id))}</td></tr>`).join("") ||
+      `<tr><td colspan="4" class="note">No changes</td></tr>`;
+
+    diff(prev, s, records, hist.value);
+    prev = { state: s, records, history: hist.value.length, height: st.height };
+    evaluate();
+    $("status").textContent = `Final block ${st.height.toLocaleString("en-US")} · read ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    $("status").innerHTML = `<span class="err">Could not read testnet: ${esc(err.message)}</span>`;
+  } finally {
+    loading = false;
+  }
 }
 
 function renderRun() {
@@ -214,73 +456,42 @@ function renderRun() {
     `<td><a class="mono" href="${TX + tx}" target="_blank" rel="noopener">${tx.slice(0, 8)}…</a></td></tr>`).join("");
 }
 
-async function load() {
-  $("status").textContent = "Reading testnet…";
-  try {
-    const [st, hist, recs, acct, keys] = await Promise.all([
-      view("guard_state"), view("guard_history"), view("list_fix_proofs"),
-      rpc({ request_type: "view_account", account_id: CONTRACT }),
-      rpc({ request_type: "view_access_key_list", account_id: AGENT }),
-    ]);
-    const s = st.value;
-    if (!s) throw new Error("guard_state is empty");
-    $("limit").textContent = num(s.limit);
-    $("spent").textContent = num(s.spent);
-    $("total").textContent = num(s.total_paid);
-    $("rule-now").textContent = rule(s.policy_expr);
-    $("rule-record").textContent = short(s.record_id);
-
-    const records = recs.value.map((r) => ({ ...r, s: JSON.parse(r.summary) }));
-    const active = records.find((r) => r.bundle_hash === s.record_id);
-    const exprHash = await sha256hex(s.policy_expr);
-    const codeHex = base58hex(acct.code_hash);
-    const spendKey = keys.keys.find((k) => k.public_key === SPEND_KEY);
-    const fc = spendKey && spendKey.access_key.permission.FunctionCall;
-    const keyOk = !!fc && fc.receiver_id === CONTRACT && fc.method_names.length === 1 && fc.method_names[0] === "guard_spend";
-
-    $("checks").innerHTML = [
-      check(codeHex === EXPECTED.wasm, "Deployed code is the CI source build",
-        `on-chain code hash <code>${short(codeHex)}</code> vs published wasm SHA-256 <code>${short(EXPECTED.wasm)}</code>`),
-      check(exprHash === s.policy_expr_sha256 && exprHash === EXPECTED.policy, "Rule in force hashes to the published value",
-        `SHA-256 computed here <code>${short(exprHash)}</code>; contract says <code>${short(s.policy_expr_sha256)}</code>`),
-      check(!!active && active.s.verdict === "accept" && active.s.policy_expr === s.policy_expr,
-        "Rule came from an accept record",
-        active ? `record <code>${short(active.bundle_hash)}</code>: verdict <strong>${esc(active.s.verdict)}</strong>, judge ${esc(active.s.judge_version)}, same rule text` : "record not found"),
-      check(s.spec_sha256 === EXPECTED.spec && (!active || active.s.spec_sha256 === s.spec_sha256),
-        "Same fixed specification", `spec SHA-256 <code>${short(s.spec_sha256)}</code>`),
-      check(s.record_id === EXPECTED.record, "Record matches the repository evidence",
-        `expected <code>${short(EXPECTED.record)}</code>`),
-      check(keyOk, "Agent key can only call guard_spend",
-        fc ? `receiver <code>${esc(fc.receiver_id)}</code>, methods <code>${esc(fc.method_names.join(", "))}</code>` : "spend key not found"),
-    ].join("");
-
-    $("key-card").innerHTML = spendKey
-      ? `<div class="label">${esc(AGENT)}</div><div class="mono" style="margin:4px 0">${esc(SPEND_KEY)}</div>` +
-        `<div>Permission: <strong>${fc ? "FunctionCall" : "FullAccess"}</strong>` +
-        (fc ? ` · receiver <code>${esc(fc.receiver_id)}</code> · methods <code>${esc(fc.method_names.join(", "))}</code>` : "") + `</div>` +
-        `<div class="note">It cannot call guard_set_policy, transfer, or touch any other contract.</div>`
-      : `<span class="err">Spend key not found on ${esc(AGENT)}</span>`;
-
-    $("records").innerHTML = records.map((r) =>
-      `<tr><td><span class="pill ${r.s.verdict === "accept" ? "pass" : "fail"}">${esc(r.s.verdict)}</span></td>` +
-      `<td><code>${esc(rule(r.s.policy_expr))}</code></td><td class="mono">${short(r.bundle_hash)}</td>` +
-      `<td>${when(r.block_timestamp_ms)}<div class="note">by ${esc(r.caller)}</div></td></tr>`).join("") ||
-      `<tr><td colspan="4" class="note">No records</td></tr>`;
-
-    $("history").innerHTML = hist.value.map((h) =>
-      `<tr><td>${when(h.block_timestamp_ms)}</td><td class="mono">${short(h.previous_policy_expr_sha256)}</td>` +
-      `<td class="mono">${short(h.policy_expr_sha256)}</td><td class="mono">${short(h.record_id)}</td></tr>`).join("") ||
-      `<tr><td colspan="4" class="note">No changes</td></tr>`;
-
-    $("status").textContent = `Final block ${st.height.toLocaleString("en-US")} · read ${new Date().toLocaleTimeString()}`;
-  } catch (err) {
-    $("status").innerHTML = `<span class="err">Could not read testnet: ${esc(err.message)}</span>`;
+if (!validAccount(CONTRACT) || !validAccount(AGENT)) {
+  $("status").innerHTML = `<span class="err">Invalid ?contract= or ?agent= account id</span>`;
+} else {
+  document.title = `Fixseal Guard Viewer — ${CONTRACT}`;
+  $("contract-link").innerHTML = `<code>${esc(CONTRACT)}</code>`;
+  $("contract-link").href = `https://testnet.nearblocks.io/address/${CONTRACT}`;
+  $("agent-link").innerHTML = `<code>${esc(AGENT)}</code>`;
+  $("agent-link").href = `https://testnet.nearblocks.io/address/${AGENT}`;
+  if (!isDefault) {
+    $("run-section").hidden = true;
+  } else {
+    renderRun();
   }
+  if (LIVE) {
+    $("live-tag").hidden = false;
+    setInterval(() => { if (!document.hidden) load(); }, 3000);
+  }
+  load();
+  $("refresh").addEventListener("click", load);
 }
-
-renderRun();
-load();
-$("refresh").addEventListener("click", load);
+$("try-spent").addEventListener("input", () => { $("try-spent").dataset.dirty = "1"; evaluate(); });
+$("try-amount").addEventListener("input", evaluate);
+for (const b of document.querySelectorAll("[data-amt]")) {
+  b.addEventListener("click", () => {
+    $("try-amount").value = b.dataset.amt;
+    // The attack scenario: 600 already spent, so spent + amount wraps to 100.
+    if (b.dataset.spent) {
+      $("try-spent").value = b.dataset.spent;
+      $("try-spent").dataset.dirty = "1";
+    } else if (prev && prev.state) {
+      $("try-spent").value = prev.state.spent;
+      delete $("try-spent").dataset.dirty;
+    }
+    evaluate();
+  });
+}
 </script>
 </body>
 </html>

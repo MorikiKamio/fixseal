@@ -20,7 +20,7 @@ fi
 mkdir -p "$DEST"
 
 # Exclusions follow AGENTS.md: internal docs, tests, build caches, the
-# contract crate, post-experiment records and every after_honest reference
+# contract crate, viewer reference expressions, post-experiment records and every after_honest reference
 # directory. .git is excluded because history contains the answers.
 tar -C "$SRC" \
     --exclude='./.git' \
@@ -28,6 +28,7 @@ tar -C "$SRC" \
     --exclude='./judge/tests' \
     --exclude='./judge/target' \
     --exclude='./agent-contract' \
+    --exclude='./viewer' \
     --exclude='./examples/fixers' \
     --exclude='./demo-artifacts' \
     --exclude='./submission' \
@@ -42,7 +43,7 @@ tar -C "$SRC" \
     -cf - . | tar -C "$DEST" -xf -
 
 # Structural check: excluded paths absent, required inputs present.
-for p in docs judge/tests agent-contract examples/fixers demo-artifacts \
+for p in docs judge/tests agent-contract viewer examples/fixers demo-artifacts \
          lean/after_honest lean/targets/spend/after_honest \
          lean/.lake lean/targets/spend/.lake; do
     if [ -e "$DEST/$p" ] || [ -L "$DEST/$p" ]; then

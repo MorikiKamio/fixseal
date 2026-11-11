@@ -41,8 +41,11 @@ jobs:
       - name: Evidence checker and workflow tests
         run: |
           python3 -m unittest scripts/test_judge_check.py
+          python3 -m unittest scripts/test_guard_workflow.py scripts/test_live_fix.py
           python3 fixers/nearai/test_run_fixer.py
           python3 scripts/check-spend-proof-leak.py --self-test
+      - name: Viewer policy evaluator test
+        run: node --test viewer/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -6,6 +6,33 @@ use fixseal_judge::{
 };
 use std::path::Path;
 
+fn spend_export_inputs() -> Vec<String> {
+    // Same order as the judge's export check: attacks, baseline regressions, grid.
+    let spend = Path::new(env!("CARGO_MANIFEST_DIR")).join("../lean/targets/spend");
+    let corpus: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(spend.join("corpus.json")).unwrap()).unwrap();
+    let mut inputs: Vec<String> = corpus["public"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .chain(corpus["variants"].as_array().unwrap())
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let tests: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(spend.join("before/tests/regression.json")).unwrap(),
+    )
+    .unwrap();
+    inputs.extend(
+        tests
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["input"].as_str().unwrap().to_string()),
+    );
+    inputs.extend(spend_boundary_grid());
+    inputs
+}
+
 fn source(body: &str) -> Vec<u8> {
     format!("import SpendSpec\nnamespace Target\ndef authorize (limit spent amount : UInt64) : Bool :=\n {body}\nend Target\n").into_bytes()
 }
@@ -87,5 +114,66 @@ fn spend_report_summary_and_replay_bind_the_export() {
         lines
             .iter()
             .any(|s| s == "MISMATCH re-exported policy expression and SHA-256")
+    );
+}
+
+// The viewer's JavaScript evaluator is tested against these vectors by
+// viewer/policy.test.mjs; this test keeps the file equal to Rust results.
+#[test]
+fn viewer_policy_vectors_match_rust_evaluator() {
+    let inputs = spend_export_inputs();
+    assert_eq!(inputs.len(), 1028);
+    // The spend-4 accepted export, the vulnerable baseline and one
+    // expression covering every remaining operator.
+    let accepted = BoolExpr::parse(
+        r#"{"op":"and","args":[{"op":"le","args":[{"op":"amount"},{"op":"limit"}]},{"op":"le","args":[{"op":"spent"},{"op":"sub","args":[{"op":"limit"},{"op":"amount"}]}]}]}"#,
+    )
+    .unwrap();
+    let all_ops = BoolExpr::parse(
+        r#"{"op":"and","args":[{"op":"if","args":[{"op":"and","args":[{"op":"lt","args":[{"op":"spent"},{"op":"limit"}]},{"op":"not","args":{"op":"eq","args":[{"op":"spent"},{"op":"amount"}]}}]},{"op":"le","args":[{"op":"if","args":[{"op":"lt","args":[{"op":"spent"},{"op":"amount"}]},{"op":"add","args":[{"op":"spent"},{"op":"const","args":"18446744073709551615"}]},{"op":"sub","args":[{"op":"amount"},{"op":"spent"}]}]},{"op":"limit"}]},{"op":"or","args":[{"op":"false"},{"op":"eq","args":[{"op":"spent"},{"op":"limit"}]}]}]},{"op":"true"}]}"#,
+    )
+    .unwrap();
+    let triple = |input: &str| {
+        let parts: Vec<u64> = input.split(' ').map(|p| p.parse().unwrap()).collect();
+        (parts[0], parts[1], parts[2])
+    };
+    let cases: Vec<serde_json::Value> = [
+        ("vulnerable", BoolExpr::vulnerable()),
+        ("accepted", accepted),
+        ("all_operators", all_ops),
+    ]
+    .iter()
+    .map(|(name, expr)| {
+        let mut bits = vec![0u8; inputs.len().div_ceil(8)];
+        for (i, input) in inputs.iter().enumerate() {
+            let (limit, spent, amount) = triple(input);
+            if expr.eval(limit, spent, amount) {
+                bits[i / 8] |= 1 << (i % 8);
+            }
+        }
+        let json = expr.canonical();
+        serde_json::json!({
+            "name": name,
+            "expr": json,
+            "expr_sha256": sha256(json.as_bytes()),
+            "expected": bits.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+        })
+    })
+    .collect();
+    let vector = serde_json::json!({
+        "format": "fixseal-policy-vectors-v1",
+        "note": "expected is a little-endian bitset over inputs, from the Rust evaluator",
+        "inputs": inputs,
+        "cases": cases,
+    });
+    let text = serde_json::to_string(&vector).unwrap() + "\n";
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../viewer/policy-vectors.json");
+    if std::env::var_os("FIXSEAL_WRITE_VECTORS").is_some() {
+        std::fs::write(&path, &text).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        text,
+        "regenerate: FIXSEAL_WRITE_VECTORS=1 cargo test --test policy_expr viewer_policy_vectors"
     );
 }
