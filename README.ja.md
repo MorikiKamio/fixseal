@@ -11,6 +11,7 @@ NEARは結果を記録し、一致するaccept記録がある式だけに差し�
 | Devin (swe-2-high) | PROOF_REJECTED | accept | 12/12 → 0/12 · 16/16 |
 | Codex (gpt-6.1-sol) | PROOF_REJECTED | accept | 12/12 → 0/12 · 16/16 |
 | DeepSeek V4.1 Flash via NEAR AI Cloud¹ | accept | 運用者再判定: accept | 12/12 → 0/12 · 16/16 |
+| Codex (gpt-6.1-sol)、testnet でライブ実行² | accept | accept、testnet に導入 | 12/12 → 0/12 · 16/16 |
 
 [60秒の保存証拠検査](README.md#60-second-inspection--do-x-see-y) · [証明の再実行](JUDGES.md#first-five-minutes-offline-route) · [実行条件と記録](#real-ai-fixers-blind-run)
 
@@ -22,6 +23,8 @@ flowchart LR
 ```
 
 ¹ NX1は120ターン上限、done未呼び出し、同じコピーを運用者が再判定。FX3初回証明は復元資料です。モデルの優劣比較ではありません。記録提出者・書き出し器・解釈器・所有者を信頼し、契約はLeanを実行しません。[前提](ASSUMPTIONS.md)。現行ガードはローカル NEAR sandbox（[ログ](docs/demo-output-host-guard.txt)）と **NEAR testnet**（[10件の取引](docs/testnet-run-2026-11-10.md)）で最後まで動きました。
+
+² 2026-11-11、デモ動画の録画中に実行。Codex が答えを抜いたコピーで修正を書き、judge が1回目で accept、testnet のガードがその式だけを導入して同じ攻撃を拒否しました（[実行記録](docs/testnet-live-run-2026-11-11.md)）。1回の実行で、モデル比較ではありません。
 
 作者: **Moriki Kamio**。[English](README.md) / [審査手順](JUDGES.md) / [エージェント向け](AGENTS.md)。
 
@@ -133,6 +136,8 @@ scripts/demo.sh
 
 2026-11-10、NEAR testnet、模擬アテステーション、合成データ（仮想空間での検証）。コントラクト `fixseal-guard.testnet`、wasm の SHA-256 `9fb00594…4c718`（CI でソースから作ったものと同じ）。桁あふれ攻撃で上限 1000 yoctoNEAR を超えて送金 → 記録なし・reject 記録での差し替えは失敗 → accept 記録の修正を導入 → 同じ攻撃は拒否 → 正当な 100 yoctoNEAR は送金。[全取引・鍵・最終状態](docs/testnet-run-2026-11-10.md)。読み取りだけの再確認: `scripts/judge-check.sh --stage a --allow-testnet-read`。
 
+2026-11-11、デモ動画用のライブ実行: `fixseal-live-2.testnet` で同じ10手順。導入した修正は録画中に Codex が書いたものです（1回目で accept、記録 `a52b5ab3…0535`）。[全取引・最終状態](docs/testnet-live-run-2026-11-11.md)・[ブラウザで見る](https://morikikamio.github.io/fixseal/?contract=fixseal-live-2.testnet)。
+
 ブラウザで見る（読み取りのみ）: <https://morikikamio.github.io/fixseal/>。ブラウザからコントラクトを読み、コードのハッシュ、ルールのハッシュ、accept の記録、エージェントの鍵の制限を確かめます。ウォレットも鍵も使いません。
 
 ## 仕組み
@@ -204,6 +209,8 @@ spend の Target は UInt64 と Bool の演算に限定し、`toNat` 等の変�
 ¹ [NX1記録](docs/fixer/NX1-nearai.md): `deepseek/deepseek-v4.1-flash`、2026-11-10 04:50〜05:07 UTC、120ターン、prompt 5,771,118 / completion 85,891トークン。bashでacceptを得ましたがdoneを呼ばず、上限で停止し道具のattemptsは0。運用者が同じspend-3コピーで再判定しaccept・攻撃0/12・回帰16/16・proof=trueを確認。現在のテストはspend-4で最終ファイルを再判定します。上限や終了方法が異なるためモデル比較ではありません。歴史的な単価・キャッシュ内訳はなく、料金は算出していません。
 
 Lean カーネルが固定仕様に対する証明を検査し、固定テストを再実行しました。行数は Proof.lean の import・空行を含みます。[Devin記録](docs/fixer/FX3-devin.md)・[Codex記録](docs/fixer/FX3-codex.md)と[各試行・再判定手順](examples/fixers/README.md)を公開用に整理しました。初回 Proof はエラーと修正内容からの復元で、当時の原本とのバイト同一性は未確認です。今回の再判定は保存記録の再現で、新たな盲検実験やチェーン検証ではありません。
+
+**ライブ実行（2026-11-11）。** デモ動画用に、Codex（`gpt-6.1-sol`）へ `scripts/live-fix.sh` で答えを抜いた新しいコピーを渡し、約3分・1回目で accept（攻撃 0/12、回帰 16/16、Lean の証明検査に合格）。その式 `if spent ≤ limit then amount ≤ limit − spent else false` を NEAR testnet に記録・導入しました。[実行記録](docs/testnet-live-run-2026-11-11.md)・[Codex の Target・Proof・バンドル](examples/fixers/spend/codex-live-2026-11-11/)（`fixseal-judge verify` → `VERIFIED`）。
 
 ## 期間内に作った部分と再利用（Q-005）
 
