@@ -24,7 +24,7 @@ flowchart LR
 
 ¹ NX1: 120-turn cap; no `done` call; operator rejudged the same copy. FX3 first proofs are reconstructed. These runs are not a model ranking. The contract trusts the submitter and does not run Lean; the exporter/interpreter and owner remain trusted. [Scope](ASSUMPTIONS.md). The current guard ran end to end on a local NEAR sandbox ([log](docs/demo-output-host-guard.txt)) and on **NEAR testnet** ([10 transactions](docs/testnet-run-2026-11-10.md)).
 
-² 2026-11-11, during the demo recording: Codex wrote the fix in an answer-withheld copy, the judge accepted it on the first attempt, and the testnet guard installed exactly that rule and refused the same attack ([run](docs/testnet-live-run-2026-11-11.md)). One run; not a ranking.
+² 2026-11-11, during the demo recording: Codex wrote the fix in an answer-withheld copy, the judge accepted it on the first attempt, and the testnet guard installed exactly that rule and refused the same attack. Done twice on fresh contracts; the video shows `fixseal-live-3.testnet` ([runs](docs/testnet-live-run-2026-11-11.md)). Not a ranking.
 
 Author: **Moriki Kamio**. [Evaluation details](JUDGES.md) · [Agent instructions](AGENTS.md).
 
@@ -168,7 +168,7 @@ Three recorded AI fixers worked in answer-withheld spend copies with UInt64/Bool
 
 The Lean kernel checked the accepted proofs against the fixed specification, and fixed tests were rerun. Proof line counts include the import and blank lines in `Proof.lean`. [Devin's record](docs/fixer/FX3-devin.md), [Codex's record](docs/fixer/FX3-codex.md) and [archived attempts with replay instructions](examples/fixers/README.md) are public. First-attempt proofs are reconstructions from the recorded errors and edits; byte-identical historical sources are unavailable. Replaying these archives is not a new blind run or a chain verification.
 
-**Live run, 2026-11-11.** For the demo video, Codex (`gpt-6.1-sol`) got a fresh answer-withheld copy through `scripts/live-fix.sh` and was accepted on the first attempt in about 3 minutes (attacks 0/12, regressions 16/16, Lean proof checked). Its rule, `if spent ≤ limit then amount ≤ limit − spent else false`, was then recorded and installed on NEAR testnet. [Run record](docs/testnet-live-run-2026-11-11.md) · [Codex's Target, Proof and bundle](examples/fixers/spend/codex-live-2026-11-11/) (`fixseal-judge verify` → `VERIFIED`).
+**Live run, 2026-11-11.** For the demo video, Codex (`gpt-6.1-sol`) got a fresh answer-withheld copy through `scripts/live-fix.sh` and was accepted on the first attempt in about 3 minutes (attacks 0/12, regressions 16/16, Lean proof checked), in two separate runs. Its rule, `if spent ≤ limit then amount ≤ limit − spent else false`, was then recorded and installed on NEAR testnet. [Run record](docs/testnet-live-run-2026-11-11.md) · Codex's Target, Proof and bundle: [video run](examples/fixers/spend/codex-live-2026-11-11-video/), [first take](examples/fixers/spend/codex-live-2026-11-11/) (`fixseal-judge verify` → `VERIFIED`).
 
 ## Local NEAR demo
 
@@ -187,7 +187,7 @@ Sandboxed coding environments may fail with `Operation not permitted` while bind
 
 2026-11-10, NEAR testnet, local/mock attestation, synthetic data. Contract `fixseal-guard.testnet`, wasm SHA-256 `9fb00594…4c718` (same as the CI source build). The overflow attack paid out past the 1000 yoctoNEAR cap; replacement without a record and with a reject record failed; the accept-recorded fix was installed; the same attack was refused; a legitimate 100 yoctoNEAR spend went through. [All transactions, keys and final state](docs/testnet-run-2026-11-10.md). Read-only recheck: `scripts/judge-check.sh --stage a --allow-testnet-read`.
 
-2026-11-11, live run recorded for the demo video: same 10 steps on `fixseal-live-2.testnet`, but the installed fix was written by Codex during the recording (accept on the first attempt, record `a52b5ab3…0535`). [All transactions and final state](docs/testnet-live-run-2026-11-11.md) · [view it](https://morikikamio.github.io/fixseal/?contract=fixseal-live-2.testnet).
+2026-11-11, live runs: same 10 steps, but the installed fix was written by Codex during the run (accept on the first attempt). **Demo video:** `fixseal-live-3.testnet`, record `4aca5779…d78b` ([view it](https://morikikamio.github.io/fixseal/?contract=fixseal-live-3.testnet)). First take: `fixseal-live-2.testnet`, record `a52b5ab3…0535` ([view it](https://morikikamio.github.io/fixseal/?contract=fixseal-live-2.testnet)). [All transactions and final state](docs/testnet-live-run-2026-11-11.md).
 
 Live read-only viewer: <https://morikikamio.github.io/fixseal/>. It reads the contract from your browser and rechecks the code hash, rule hash, accept record and the agent key restriction. No wallet or keys.
 
